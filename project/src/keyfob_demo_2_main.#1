@@ -92,13 +92,13 @@ void  main (void)
         ERTC = 1;
         EA = 1;
 
-        fDesiredFreqOOK 	 = f_433_RkeFreqOOK_c;
-        fDesiredFreqFSK 	 = f_433_RkeFreqFSK_c;
-        bFskDev 		 = b_433_RkeFskDev_c;
+        fDesiredFreqOOK 	 = f_315_RkeFreqOOK_c;
+        fDesiredFreqFSK 	 = f_315_RkeFreqFSK_c;
+        bFskDev 		 = b_315_RkeFskDev_c;
         // Setup the PA.
-        rPaSetup.bLevel      = b_433_PaLevel_c;
-        rPaSetup.wNominalCap = b_433_PaNominalCap_c;
-        rPaSetup.bMaxDrv     = b_433_PaMaxDrv_c;
+        rPaSetup.bLevel      = b_315_PaLevel_c;
+        rPaSetup.wNominalCap = b_315_PaNominalCap_c;
+        rPaSetup.bMaxDrv     = b_315_PaMaxDrv_c;
         rPaSetup.fAlpha      = 0.0;
         rPaSetup.fBeta       = 0.0;
         vPa_Setup( &rPaSetup );
@@ -165,19 +165,16 @@ while ( 0 == bDmdTs_GetSamplesTaken() )
   *    TRANSMISSION LOOP PHASE
   *------------------------------------------------------------------------------
   */
-
+ //    P0CON &= ~(0x03 << 4);  
+ //   P0CON |=  (0x02 << 4);
 // Application loop, including push button state analyzation and transmission. 
-    P0CON &= ~(0x03 << 4);  
-    P0CON |=  (0x02 << 4);  
-    MY_LED = 1;
 while(1)
 {
+
 // Buttons analyzation 
         vButtonCheck();
         if (bButtonState)
         {
-			if(MY_LED==1) MY_LED=0;
-			else MY_LED=1;
                 // Packet transmit repeat counter
 	        bRepeatCount = bRepeatCount_c;   
                 // Transmit. 
@@ -243,13 +240,13 @@ void vRepeatTxLoop (void)
 	        if ((PROT0_CTRL & M_NVM_BLOWN) > 1) 
   	        {
     	                //turn LED on
-	 	        GPIO_LED = 1; 
+	 	        MY_LED = 0; 
                 }	       
                 while ( (lSys_GetMasterTime() - lTimestamp) < lLEDOnTime )
                 {
                         //wait for LED ON time to expire
                 }
-	        GPIO_LED = 0;   //turn LED off
+	        MY_LED = 1;  //turn LED off
 	        //Transmit packet
                 vStl_SingleTxLoop(pbFrameHead,bFrameSize);
 	        // Wait repeat interval. 
