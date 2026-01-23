@@ -1,0 +1,1394 @@
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE KEYFOB_DEMO_2_MAIN
+OBJECT MODULE PLACED IN keyfob_demo_2_main.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe keyfob_demo_2_main.c DB OE BR BROWSE NOAREGS NOINTPROMOTE DEBUG OBJECTEXTEN
+                    -D CODE SYMBOLS INCDIR(..\src;..\..\common\src;c:\SiLabs\MCU\Inc)
+
+line level    source
+
+   1          /*------------------------------------------------------------------------------
+   2           *                          Silicon Laboratories, Inc.
+   3           *                           http://www.silabs.com
+   4           *                               Copyright 2010
+   5           *------------------------------------------------------------------------------
+   6           *
+   7           *    FILE:       keyfob_demo_2_main.c
+   8           *    TARGET:     Si4010 RevC
+   9           *    TOOLCHAIN:  Keil
+  10           *    DATE:       Nov 10, 2012,
+  11           *    RELEASE:    1.0 (Tamas Nagy), ROM version 02.00
+  12           *
+  13           *------------------------------------------------------------------------------
+  14           *
+  15           *    DESCRIPTION:
+  16           *      This file contains the main function for the Keil toolchain
+  17           *      sample keyfob_demo_2 project.
+  18           *
+  19           *      BL51 linker directives for building this application:
+  20           *
+  21           *      BL51: PL(68) PW(78) IXREF RS(256)
+  22           *            CODE (0x0-0x08FF)
+  23           *            DATA (0x40)
+  24           *            IDATA (0x70)
+  25           *            XDATA (0x0900-0x107F)
+  26           *            STACK (?STACK(0x90))
+  27           *
+  28           *------------------------------------------------------------------------------
+  29           *
+  30           *    INCLUDES:
+  31           */
+  32          #include "stdlib.h"
+  33          #include "si4010.h"
+  34          #include "si4010_api_rom.h"
+  35          
+  36          // Demo header
+  37          #include "keyfob_demo_2.h"
+  38          sbit MY_LED = P0^4;  
+  39          void  main (void)
+  40          {
+  41   1      
+  42   1      /*------------------------------------------------------------------------------
+  43   1       *    SETUP PHASE
+  44   1       *------------------------------------------------------------------------------
+  45   1       */
+  46   1              //Set DMD interrupt to high priority,
+  47   1              // any other interrupts have to stay low priority
+  48   1              PDMD=1;
+  49   1              // Disable the Matrix and Roff modes on GPIO[3:1] 
+  50   1              PORT_CTRL &= ~(M_PORT_MATRIX | M_PORT_ROFF | M_PORT_STROBE);
+  51   1              PORT_CTRL |=  M_PORT_STROBE;
+  52   1              PORT_CTRL &= (~M_PORT_STROBE);
+  53   1              // Turn LED control off 
+  54   1              GPIO_LED = 0;
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 2   
+
+  55   1              vSys_Setup( 10 );
+  56   1              vSys_SetMasterTime(0);
+  57   1              // Setup the bandgap 
+  58   1              vSys_BandGapLdo( 1 );
+  59   1      
+  60   1              if ((PROT0_CTRL & M_NVM_BLOWN) > 1) //if part is burned to user or run mode.
+  61   1              {
+  62   2                      // Check the first power up bit meaning keyfob is powered on by battery insertion
+  63   2                      if ( 0 != (SYSGEN & M_POWER_1ST_TIME) )
+  64   2                      {
+  65   3                              vSys_FirstPowerUp(); // Function will shutdown.
+  66   3                      }
+  67   2              }
+  68   1              // Set LED intensity. Valid values are 0 (off), 1, 2 and 3 
+  69   1              vSys_LedIntensity( 3 );
+  70   1              lLEDOnTime=20;
+  71   1              //Get part ID (4byte factory burned unique serial number)
+  72   1              lPartID = lSys_GetProdId();
+  73   1              // Initialize isr call counter 
+  74   1              bIsr_DebounceCount = 0;
+  75   1      
+  76   1              // BSR parameters initialization 
+  77   1              rBsrSetup.bButtonMask = bButtonMask_c; 
+  78   1      #ifdef CRYSTAL
+                      rBsrSetup.bButtonMask &= 0xFE;// clear bit0; GPIO0 will be used by crystal
+              #endif
+  81   1              rBsrSetup.pbPtsReserveHead = abBsrPtsPlaceHolder;
+  82   1              rBsrSetup.bPtsSize = 3;
+  83   1              rBsrSetup.bPushQualThresh = 3;
+  84   1              // Setup the BSR 
+  85   1              vBsr_Setup( &rBsrSetup );
+  86   1      
+  87   1              // Setup the RTC to tick every 5ms and clear it. Keep it disabled. 
+  88   1              RTC_CTRL = (0x07 << B_RTC_DIV) | M_RTC_CLR;
+  89   1              // Enable the RTC 
+  90   1              RTC_CTRL |= M_RTC_ENA;
+  91   1              // Enable the RTC interrupt and global interrupt enable 
+  92   1              ERTC = 1;
+  93   1              EA = 1;
+  94   1      
+  95   1              fDesiredFreqOOK          = f_433_RkeFreqOOK_c;
+  96   1              fDesiredFreqFSK          = f_433_RkeFreqFSK_c;
+  97   1              bFskDev                  = b_433_RkeFskDev_c;
+  98   1              // Setup the PA.
+  99   1              rPaSetup.bLevel      = b_433_PaLevel_c;
+ 100   1              rPaSetup.wNominalCap = b_433_PaNominalCap_c;
+ 101   1              rPaSetup.bMaxDrv     = b_433_PaMaxDrv_c;
+ 102   1              rPaSetup.fAlpha      = 0.0;
+ 103   1              rPaSetup.fBeta       = 0.0;
+ 104   1              vPa_Setup( &rPaSetup );
+ 105   1      
+ 106   1      #ifdef OOK
+              rOdsSetup.bModulationType = bModOOK_c;
+              // Setup the STL encoding for Manchester. No user encoding function therefore the pointer is NULL. 
+              vStl_EncodeSetup( bEncodeManchester_c, NULL );
+              fDesiredFreq = fDesiredFreqOOK;
+              bPreamble = bPreambleManch_c;
+              #else //FSK
+ 113   1      rOdsSetup.bModulationType = bModFSK_c;
+ 114   1      // Setup the STL encoding for none. No user encoding function therefore the pointer is NULL.
+ 115   1      vStl_EncodeSetup( bEnc_NoneNrz_c, NULL );
+ 116   1      fDesiredFreq = fDesiredFreqFSK;
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 3   
+
+ 117   1      bPreamble = bPreambleNrz_c;
+ 118   1      #endif
+ 119   1      // Setup the ODS 
+ 120   1      // Set group width to 7, which means 8 bits/encoded byte to be transmitted.
+ 121   1      // The value must match the output width of the data encoding function
+ 122   1      // set by vStl_EncodeSetup()! 
+ 123   1      rOdsSetup.bGroupWidth     = 7;
+ 124   1      rOdsSetup.bClkDiv         = 5;
+ 125   1      rOdsSetup.bEdgeRate       = 0;
+ 126   1      // Configure the warm up intervals 
+ 127   1      rOdsSetup.bLcWarmInt  = 0;
+ 128   1      rOdsSetup.bDivWarmInt = 5;
+ 129   1      rOdsSetup.bPaWarmInt  = 4;
+ 130   1      // 24MHz / (bClkDiv+1) / 9.6kbps = 417 
+ 131   1      rOdsSetup.wBitRate        = 417;
+ 132   1      vOds_Setup( &rOdsSetup );
+ 133   1      
+ 134   1      // Setup frequency casting .. needed to be called once per boot 
+ 135   1      vFCast_Setup();
+ 136   1      
+ 137   1      #ifdef CRYSTAL
+              //XO Setup
+              rXoSetup.fXoFreq        = 10000000.0;   // Frequency of the external crystal [Hz]
+              rXoSetup.bLowCap        = 1;                    // Capacitance setup of crystal 0 = above 14pf, 1 = below 14pf
+              vFCast_XoSetup( &rXoSetup );
+              #endif
+ 143   1      
+ 144   1      // Measure the battery voltage in mV, only once per boot to save power
+ 145   1      // Make loaded measurement .. bBatteryWait_c * 17ms wait after loading
+ 146   1      iBatteryMv = iMVdd_Measure( bBatteryWait_c );
+ 147   1      if (iBatteryMv < iLowBatMv_c) 
+ 148   1      {
+ 149   2              bBatStatus = 0;
+ 150   2      }
+ 151   1      else
+ 152   1      {
+ 153   2              bBatStatus = 1;
+ 154   2      }
+ 155   1        
+ 156   1      // Setup the DMD temperature sensor for temperature mode 
+ 157   1      vDmdTs_RunForTemp( 3 ); // Skip first 3 samples 
+ 158   1      // Wait until there is a valid DMD temp sensor sample 
+ 159   1      while ( 0 == bDmdTs_GetSamplesTaken() )
+ 160   1      {
+ 161   2              //wait
+ 162   2      }
+ 163   1      
+ 164   1       /*------------------------------------------------------------------------------
+ 165   1        *    TRANSMISSION LOOP PHASE
+ 166   1        *------------------------------------------------------------------------------
+ 167   1        */
+ 168   1      
+ 169   1      // Application loop, including push button state analyzation and transmission. 
+ 170   1          P0CON &= ~(0x03 << 4);  
+ 171   1          P0CON |=  (0x02 << 4);  
+ 172   1          MY_LED = 1;
+ 173   1      while(1)
+ 174   1      {
+ 175   2      // Buttons analyzation 
+ 176   2              vButtonCheck();
+ 177   2              if (bButtonState)
+ 178   2              {
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 4   
+
+ 179   3                              if(MY_LED==1) MY_LED=0;
+ 180   3                              else MY_LED=1;
+ 181   3                      // Packet transmit repeat counter
+ 182   3                      bRepeatCount = bRepeatCount_c;   
+ 183   3                      // Transmit. 
+ 184   3                      vRepeatTxLoop();
+ 185   3                      //Sync counter increment
+ 186   3              }
+ 187   2              else if( (lSys_GetMasterTime() >> 5) > bMaxWaitForPush_c )
+ 188   2              {
+ 189   3                      if ((PROT0_CTRL & M_NVM_BLOWN) > 1) //if part is burned to user or run mode.
+ 190   3                      {
+ 191   4                              //Disable all interrupts
+ 192   4                              EA = 0;
+ 193   4      #ifdef CRYSTAL
+                                      // Disable XO
+                                      bXO_CTRL = 0 ;          
+                                      // Wait 20us for XO to stop
+                                      vSys_16BitDecLoop( 20 );
+              #endif
+ 199   4                              // Shutdown
+ 200   4                              vSys_Shutdown();        
+ 201   4                      }
+ 202   3          }
+ 203   2        }
+ 204   1      }
+ 205          
+ 206          
+ 207          /*------------------------------------------------------------------------------
+ 208           *
+ 209           *    FUNCTION DESCRIPTION:
+ 210           *      This function contains the loop which consists of three procedures,
+ 211           *      tx setup, tx loop and tx shutdown in the application.
+ 212           *      During waiting for repeat transmission, check button state.
+ 213           *      Once any new push button is detected, then transmit the new packet 
+ 214           *      instead of the current packet.
+ 215           *
+ 216           *------------------------------------------------------------------------------ 
+ 217           */
+ 218          void vRepeatTxLoop (void)
+ 219          
+ 220          { 
+ 221   1      
+ 222   1              vFCast_Tune( fDesiredFreq );
+ 223   1              if (rOdsSetup.bModulationType == bModFSK_c)
+ 224   1              {
+ 225   2                      vFCast_FskAdj( bFskDev ); 
+ 226   2              }
+ 227   1              // Wait until there is a temperature sample available
+ 228   1              while ( 0 == bDmdTs_GetSamplesTaken() )
+ 229   1              {
+ 230   2                      //wait
+ 231   2              }
+ 232   1              //  Tune the PA with the temperature as an argument 
+ 233   1              vPa_Tune( iDmdTs_GetLatestTemp());
+ 234   1              vPacketAssemble();
+ 235   1              //Convert whole frame before transmission 
+ 236   1              vConvertPacket(rOdsSetup.bModulationType);
+ 237   1              vStl_PreLoop();
+ 238   1              do
+ 239   1              {
+ 240   2                      // get current timestamp  
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 5   
+
+ 241   2                      lTimestamp = lSys_GetMasterTime();
+ 242   2                      //if part is burned to user or run mode
+ 243   2                      if ((PROT0_CTRL & M_NVM_BLOWN) > 1) 
+ 244   2                      {
+ 245   3                              //turn LED on
+ 246   3                              GPIO_LED = 1; 
+ 247   3                      }              
+ 248   2                      while ( (lSys_GetMasterTime() - lTimestamp) < lLEDOnTime )
+ 249   2                      {
+ 250   3                              //wait for LED ON time to expire
+ 251   3                      }
+ 252   2                      GPIO_LED = 0;   //turn LED off
+ 253   2                      //Transmit packet
+ 254   2                      vStl_SingleTxLoop(pbFrameHead,bFrameSize);
+ 255   2                      // Wait repeat interval. 
+ 256   2                      while ( (lSys_GetMasterTime() - lTimestamp) < wRepeatInterval_c );
+ 257   2      
+ 258   2              }while(--bRepeatCount);
+ 259   1      
+ 260   1              vStl_PostLoop();
+ 261   1      
+ 262   1               // Clear time value for next button push detecting. 
+ 263   1              vSys_SetMasterTime(0);
+ 264   1      
+ 265   1              return;
+ 266   1      } 
+ 267          
+ 268          //------------------------------------------------------------------------------
+ 269          //-----------------------------------------------------------------------------
+ 270          void isr_rtc (void) interrupt INTERRUPT_RTC using 1
+ 271          
+ 272          { 
+ 273   1      
+ 274   1        // Update the master time by 5 every time this isr is run.
+ 275   1        // clear the RTC_INT 
+ 276   1        RTC_CTRL &= ~M_RTC_INT;
+ 277   1        vSys_IncMasterTime(5); 
+ 278   1        bIsr_DebounceCount ++;
+ 279   1        if ((bIsr_DebounceCount % bDebounceInterval_c) == 0)
+ 280   1        {
+ 281   2          vBsr_Service();
+ 282   2        }
+ 283   1        return;
+ 284   1      }
+ 285           
+ 286          /*------------------------------------------------------------------------------
+ 287           *
+ 288           *    FUNCTION DESCRIPTION:
+ 289           *      Update bAp_ButtonState which indicates what to be transmitted.
+ 290           *      Check the elements on PTS (push tracking strcture) to see if any GPIO
+ 291           *      has been pressed or released.
+ 292           *      If any new pressed button has detected, the corresponding flag will be set and
+ 293           *      the associated information will be transmitted in
+ 294           *      application loop procedure.
+ 295           *
+ 296           *
+ 297           *------------------------------------------------------------------------------ 
+ 298           */
+ 299          
+ 300          void vButtonCheck (void)
+ 301          { 
+ 302   1        // Disable RTC interrupt, or button state might be updated. 
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 6   
+
+ 303   1        ERTC = 0;
+ 304   1        bButtonState = 0;  //comment this line out if autorepeat needed
+ 305   1        if (bBsr_GetPtsItemCnt())
+ 306   1           //Some buttons were pressed or released
+ 307   1        {
+ 308   2          
+ 309   2              bButtonState = wBsr_Pop() & 0xFF;
+ 310   2              if (bPrevBtn)
+ 311   2              {
+ 312   3                      bPrevBtn = bButtonState;
+ 313   3                      bButtonState = 0;
+ 314   3              }
+ 315   2              else
+ 316   2              {
+ 317   3                      bPrevBtn = bButtonState;
+ 318   3              }
+ 319   2        }
+ 320   1        // Enable RTC interrupt 
+ 321   1        ERTC = 1;
+ 322   1        return;
+ 323   1      }
+ 324          
+ 325          /*
+ 326           *------------------------------------------------------------------------------ 
+ 327           */
+ 328          void vPacketAssemble (void)
+ 329          { 
+ 330   1        BYTE i;
+ 331   1      
+ 332   1        pbFrameHead = abFrame ;
+ 333   1        bFrameSize = bFrameSize_c;
+ 334   1      
+ 335   1      
+ 336   1        for (i=0;i<bPreambleSize_c;i++)
+ 337   1        {
+ 338   2              abFrame[i] = bPreamble;
+ 339   2        }
+ 340   1      //clear button bits in bStatus
+ 341   1              bStatus &= ~M_ButtonBits_c;
+ 342   1      //copy button bits from bButtonState to bStatus
+ 343   1              bStatus |= bButtonState & M_ButtonBits_c;
+ 344   1      
+ 345   1              abFrame[bFrameSize_c - 11] = bSync1_c;
+ 346   1              abFrame[bFrameSize_c - 10] = bSync2_c;
+ 347   1              abFrame[bFrameSize_c - 9] = ((BYTE *)&lPartID)[0];
+ 348   1              abFrame[bFrameSize_c - 8] = ((BYTE *)&lPartID)[1];
+ 349   1              abFrame[bFrameSize_c - 7] = ((BYTE *)&lPartID)[2];
+ 350   1              abFrame[bFrameSize_c - 6] = ((BYTE *)&lPartID)[3];
+ 351   1              abFrame[bFrameSize_c - 5] = bStatus;
+ 352   1              abFrame[bFrameSize_c - 4] = ((BYTE *)&iBatteryMv)[0];
+ 353   1              abFrame[bFrameSize_c - 3] = ((BYTE *)&iBatteryMv)[1];
+ 354   1              abFrame[bFrameSize_c - 2] = 0;  //CRC
+ 355   1              abFrame[bFrameSize_c - 1] = 0;  //CRC
+ 356   1      
+ 357   1              vCalculateCrc();
+ 358   1      
+ 359   1      
+ 360   1        return;
+ 361   1      }
+ 362          //--------------------------------------------------------------
+ 363          //Calculate CRC and write in the frame buffer
+ 364          //Bit pattern used (1)1000 0000 0000 0101, X16+X15+X2+1
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 7   
+
+ 365          void vCalculateCrc(void)
+ 366          {
+ 367   1              BYTE i,j;
+ 368   1              WORD wCrc;
+ 369   1              wCrc = 0xffff;
+ 370   1              for(j = bPayloadStartIndex_c;j<bPayloadStartIndex_c + bPayloadSize_c;j++)
+ 371   1              {
+ 372   2                      wCrc = wCrc ^ ((WORD)abFrame[j]<<8);
+ 373   2      
+ 374   2                      for (i = 8; i != 0; i--)
+ 375   2                      {
+ 376   3                              if (wCrc & 0x8000)
+ 377   3                              {
+ 378   4                                      wCrc = (wCrc << 1) ^ 0x8005;
+ 379   4                              }
+ 380   3                              else
+ 381   3                              {
+ 382   4                                      wCrc <<= 1;
+ 383   4                              }
+ 384   3                      }
+ 385   2              }
+ 386   1        //-----------------------------------------------------------------
+ 387   1        //Write CRC in frame
+ 388   1        abFrame[bFrameSize_c - 2] = ((BYTE*)&wCrc)[0];
+ 389   1        abFrame[bFrameSize_c - 1] = ((BYTE*)&wCrc)[1];
+ 390   1        return;
+ 391   1      }
+ 392          
+ 393            //-------------------------------------------------------------------
+ 394            //MSB first to LSB first conversion, and inversion if FSK used
+ 395          void vConvertPacket (BYTE bModType)
+ 396          {
+ 397   1        BYTE i,low,high;
+ 398   1      
+ 399   1        if (bModType)
+ 400   1        {
+ 401   2          bModType = 0xff;
+ 402   2        }
+ 403   1        for (i=0;i<(sizeof abFrame);i++)
+ 404   1        {
+ 405   2              low = abConvTable[(abFrame[i] & 0xf0) >> 4] & 0x0f;
+ 406   2              high = abConvTable[abFrame[i] & 0x0f] & 0xf0;
+ 407   2              abFrame[i] = (high | low) ^ bModType;
+ 408   2        }
+ 409   1        return;
+ 410   1      }
+ 411          
+ 412          
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 8   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION main (BEGIN)
+                                           ; SOURCE LINE # 39
+                                           ; SOURCE LINE # 40
+                                           ; SOURCE LINE # 48
+0000 D2BA              SETB    PDMD
+                                           ; SOURCE LINE # 50
+0002 53B51F            ANL     PORT_CTRL,#01FH
+                                           ; SOURCE LINE # 51
+0005 43B580            ORL     PORT_CTRL,#080H
+                                           ; SOURCE LINE # 52
+0008 53B57F            ANL     PORT_CTRL,#07FH
+                                           ; SOURCE LINE # 54
+000B C285              CLR     GPIO_LED
+                                           ; SOURCE LINE # 55
+000D 7F0A              MOV     R7,#0AH
+000F 120000      E     LCALL   _vSys_Setup
+                                           ; SOURCE LINE # 56
+0012 7F00              MOV     R7,#00H
+0014 7E00              MOV     R6,#00H
+0016 7D00              MOV     R5,#00H
+0018 7C00              MOV     R4,#00H
+001A 120000      E     LCALL   _vSys_SetMasterTime
+                                           ; SOURCE LINE # 58
+001D 7F01              MOV     R7,#01H
+001F 120000      E     LCALL   _vSys_BandGapLdo
+                                           ; SOURCE LINE # 60
+0022 E5DA              MOV     A,PROT0_CTRL
+0024 5407              ANL     A,#07H
+0026 D3                SETB    C
+0027 9401              SUBB    A,#01H
+0029 7480              MOV     A,#080H
+002B 9480              SUBB    A,#080H
+002D 4009              JC      ?C0001
+                                           ; SOURCE LINE # 61
+                                           ; SOURCE LINE # 63
+002F E5BE              MOV     A,SYSGEN
+0031 5420              ANL     A,#020H
+0033 6003              JZ      ?C0001
+                                           ; SOURCE LINE # 64
+                                           ; SOURCE LINE # 65
+0035 120000      E     LCALL   vSys_FirstPowerUp
+                                           ; SOURCE LINE # 66
+                                           ; SOURCE LINE # 67
+0038         ?C0001:
+                                           ; SOURCE LINE # 69
+0038 7F03              MOV     R7,#03H
+003A 120000      E     LCALL   _vSys_LedIntensity
+                                           ; SOURCE LINE # 70
+003D 900000      R     MOV     DPTR,#lLEDOnTime
+0040 120000      E     LCALL   ?C?LSTKXDATA
+0043 00                DB      00H
+0044 00                DB      00H
+0045 00                DB      00H
+0046 14                DB      014H
+                                           ; SOURCE LINE # 72
+0047 120000      E     LCALL   lSys_GetProdId
+004A 900000      R     MOV     DPTR,#lPartID
+004D 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 74
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 9   
+
+0050 E4                CLR     A
+0051 F500        R     MOV     bIsr_DebounceCount,A
+                                           ; SOURCE LINE # 77
+0053 900000      R     MOV     DPTR,#rBsrSetup
+0056 741F              MOV     A,#01FH
+0058 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 81
+0059 A3                INC     DPTR
+005A 7400        R     MOV     A,#HIGH abBsrPtsPlaceHolder
+005C F0                MOVX    @DPTR,A
+005D A3                INC     DPTR
+005E 7400        R     MOV     A,#LOW abBsrPtsPlaceHolder
+0060 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 82
+0061 A3                INC     DPTR
+0062 7403              MOV     A,#03H
+0064 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 83
+0065 A3                INC     DPTR
+0066 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 85
+0067 7E00        R     MOV     R6,#HIGH rBsrSetup
+0069 7F00        R     MOV     R7,#LOW rBsrSetup
+006B 120000      E     LCALL   _vBsr_Setup
+                                           ; SOURCE LINE # 88
+006E 759C27            MOV     RTC_CTRL,#027H
+                                           ; SOURCE LINE # 90
+0071 439C40            ORL     RTC_CTRL,#040H
+                                           ; SOURCE LINE # 92
+0074 D2AB              SETB    ERTC
+                                           ; SOURCE LINE # 93
+0076 D2AF              SETB    EA
+                                           ; SOURCE LINE # 95
+0078 900000      R     MOV     DPTR,#fDesiredFreqOOK
+007B 120000      E     LCALL   ?C?LSTKXDATA
+007E 4D                DB      04DH
+007F CE                DB      0CEH
+0080 E8                DB      0E8H
+0081 C0                DB      0C0H
+                                           ; SOURCE LINE # 96
+0082 900000      R     MOV     DPTR,#fDesiredFreqFSK
+0085 120000      E     LCALL   ?C?LSTKXDATA
+0088 4D                DB      04DH
+0089 CE                DB      0CEH
+008A EF                DB      0EFH
+008B F5                DB      0F5H
+                                           ; SOURCE LINE # 97
+008C 900000      R     MOV     DPTR,#bFskDev
+008F 7466              MOV     A,#066H
+0091 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 99
+0092 900000      R     MOV     DPTR,#rPaSetup+08H
+0095 744D              MOV     A,#04DH
+0097 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 100
+0098 900000      R     MOV     DPTR,#rPaSetup+0AH
+009B E4                CLR     A
+009C F0                MOVX    @DPTR,A
+009D A3                INC     DPTR
+009E 74C0              MOV     A,#0C0H
+00A0 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 101
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 10  
+
+00A1 900000      R     MOV     DPTR,#rPaSetup+09H
+00A4 7401              MOV     A,#01H
+00A6 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 102
+00A7 900000      R     MOV     DPTR,#rPaSetup
+00AA 120000      E     LCALL   ?C?LSTKXDATA
+00AD 00                DB      00H
+00AE 00                DB      00H
+00AF 00                DB      00H
+00B0 00                DB      00H
+                                           ; SOURCE LINE # 103
+00B1 900000      R     MOV     DPTR,#rPaSetup+04H
+00B4 120000      E     LCALL   ?C?LSTKXDATA
+00B7 00                DB      00H
+00B8 00                DB      00H
+00B9 00                DB      00H
+00BA 00                DB      00H
+                                           ; SOURCE LINE # 104
+00BB 7E00        R     MOV     R6,#HIGH rPaSetup
+00BD 7F00        R     MOV     R7,#LOW rPaSetup
+00BF 120000      E     LCALL   _vPa_Setup
+                                           ; SOURCE LINE # 113
+00C2 900000      R     MOV     DPTR,#rOdsSetup
+00C5 7401              MOV     A,#01H
+00C7 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 115
+00C8 E4                CLR     A
+00C9 FD                MOV     R5,A
+00CA FC                MOV     R4,A
+00CB FF                MOV     R7,A
+00CC 120000      E     LCALL   _vStl_EncodeSetup
+                                           ; SOURCE LINE # 116
+00CF 900000      R     MOV     DPTR,#fDesiredFreqFSK
+00D2 E0                MOVX    A,@DPTR
+00D3 FC                MOV     R4,A
+00D4 A3                INC     DPTR
+00D5 E0                MOVX    A,@DPTR
+00D6 FD                MOV     R5,A
+00D7 A3                INC     DPTR
+00D8 E0                MOVX    A,@DPTR
+00D9 FE                MOV     R6,A
+00DA A3                INC     DPTR
+00DB E0                MOVX    A,@DPTR
+00DC FF                MOV     R7,A
+00DD 900000      R     MOV     DPTR,#fDesiredFreq
+00E0 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 117
+00E3 7500AA      R     MOV     bPreamble,#0AAH
+                                           ; SOURCE LINE # 123
+00E6 900000      R     MOV     DPTR,#rOdsSetup+03H
+00E9 7407              MOV     A,#07H
+00EB F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 124
+00EC 900000      R     MOV     DPTR,#rOdsSetup+01H
+00EF 7405              MOV     A,#05H
+00F1 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 125
+00F2 E4                CLR     A
+00F3 A3                INC     DPTR
+00F4 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 127
+00F5 900000      R     MOV     DPTR,#rOdsSetup+06H
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 11  
+
+00F8 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 128
+00F9 A3                INC     DPTR
+00FA 7405              MOV     A,#05H
+00FC F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 129
+00FD A3                INC     DPTR
+00FE 14                DEC     A
+00FF F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 131
+0100 900000      R     MOV     DPTR,#rOdsSetup+04H
+0103 7401              MOV     A,#01H
+0105 F0                MOVX    @DPTR,A
+0106 A3                INC     DPTR
+0107 74A1              MOV     A,#0A1H
+0109 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 132
+010A 7E00        R     MOV     R6,#HIGH rOdsSetup
+010C 7F00        R     MOV     R7,#LOW rOdsSetup
+010E 120000      E     LCALL   _vOds_Setup
+                                           ; SOURCE LINE # 135
+0111 120000      E     LCALL   vFCast_Setup
+                                           ; SOURCE LINE # 146
+0114 7F64              MOV     R7,#064H
+0116 120000      E     LCALL   _iMVdd_Measure
+0119 8E00        R     MOV     iBatteryMv,R6
+011B 8F00        R     MOV     iBatteryMv+01H,R7
+                                           ; SOURCE LINE # 147
+011D C3                CLR     C
+011E E500        R     MOV     A,iBatteryMv+01H
+0120 94C4              SUBB    A,#0C4H
+0122 E500        R     MOV     A,iBatteryMv
+0124 6480              XRL     A,#080H
+0126 9489              SUBB    A,#089H
+0128 5005              JNC     ?C0003
+                                           ; SOURCE LINE # 148
+                                           ; SOURCE LINE # 149
+012A E4                CLR     A
+012B F500        R     MOV     bBatStatus,A
+                                           ; SOURCE LINE # 150
+012D 8003              SJMP    ?C0004
+012F         ?C0003:
+                                           ; SOURCE LINE # 152
+                                           ; SOURCE LINE # 153
+012F 750001      R     MOV     bBatStatus,#01H
+                                           ; SOURCE LINE # 154
+0132         ?C0004:
+                                           ; SOURCE LINE # 157
+0132 7F03              MOV     R7,#03H
+0134 120000      E     LCALL   _vDmdTs_RunForTemp
+0137         ?C0005:
+                                           ; SOURCE LINE # 159
+0137 120000      E     LCALL   bDmdTs_GetSamplesTaken
+013A EF                MOV     A,R7
+013B 60FA              JZ      ?C0005
+                                           ; SOURCE LINE # 160
+                                           ; SOURCE LINE # 162
+                                           ; SOURCE LINE # 170
+013D 53A4CF            ANL     P0CON,#0CFH
+                                           ; SOURCE LINE # 171
+0140 43A420            ORL     P0CON,#020H
+                                           ; SOURCE LINE # 172
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 12  
+
+0143 D284              SETB    MY_LED
+0145         ?C0007:
+                                           ; SOURCE LINE # 173
+                                           ; SOURCE LINE # 174
+                                           ; SOURCE LINE # 176
+0145 120000      R     LCALL   vButtonCheck
+                                           ; SOURCE LINE # 177
+0148 900000      R     MOV     DPTR,#bButtonState
+014B E0                MOVX    A,@DPTR
+014C 6014              JZ      ?C0009
+                                           ; SOURCE LINE # 178
+                                           ; SOURCE LINE # 179
+014E 308404            JNB     MY_LED,?C0010
+0151 C284              CLR     MY_LED
+0153 8002              SJMP    ?C0011
+0155         ?C0010:
+                                           ; SOURCE LINE # 180
+0155 D284              SETB    MY_LED
+0157         ?C0011:
+                                           ; SOURCE LINE # 182
+0157 900000      R     MOV     DPTR,#bRepeatCount
+015A 7403              MOV     A,#03H
+015C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 184
+015D 120000      R     LCALL   vRepeatTxLoop
+                                           ; SOURCE LINE # 186
+0160 80E3              SJMP    ?C0007
+0162         ?C0009:
+                                           ; SOURCE LINE # 187
+0162 120000      E     LCALL   lSys_GetMasterTime
+0165 7805              MOV     R0,#05H
+0167 120000      E     LCALL   ?C?ULSHR
+016A E4                CLR     A
+016B 7B32              MOV     R3,#032H
+016D FA                MOV     R2,A
+016E F9                MOV     R1,A
+016F F8                MOV     R0,A
+0170 C3                CLR     C
+0171 120000      E     LCALL   ?C?ULCMP
+0174 50CF              JNC     ?C0007
+                                           ; SOURCE LINE # 188
+                                           ; SOURCE LINE # 189
+0176 E5DA              MOV     A,PROT0_CTRL
+0178 5407              ANL     A,#07H
+017A 9401              SUBB    A,#01H
+017C 7480              MOV     A,#080H
+017E 9480              SUBB    A,#080H
+0180 40C3              JC      ?C0007
+                                           ; SOURCE LINE # 190
+                                           ; SOURCE LINE # 192
+0182 C2AF              CLR     EA
+                                           ; SOURCE LINE # 200
+0184 120000      E     LCALL   vSys_Shutdown
+                                           ; SOURCE LINE # 201
+                                           ; SOURCE LINE # 202
+                                           ; SOURCE LINE # 203
+0187 80BC              SJMP    ?C0007
+             ; FUNCTION main (END)
+
+             ; FUNCTION vRepeatTxLoop (BEGIN)
+                                           ; SOURCE LINE # 218
+                                           ; SOURCE LINE # 220
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 13  
+
+                                           ; SOURCE LINE # 222
+0000 900000      R     MOV     DPTR,#fDesiredFreq
+0003 E0                MOVX    A,@DPTR
+0004 FC                MOV     R4,A
+0005 A3                INC     DPTR
+0006 E0                MOVX    A,@DPTR
+0007 FD                MOV     R5,A
+0008 A3                INC     DPTR
+0009 E0                MOVX    A,@DPTR
+000A FE                MOV     R6,A
+000B A3                INC     DPTR
+000C E0                MOVX    A,@DPTR
+000D FF                MOV     R7,A
+000E 120000      E     LCALL   _vFCast_Tune
+                                           ; SOURCE LINE # 223
+0011 900000      R     MOV     DPTR,#rOdsSetup
+0014 E0                MOVX    A,@DPTR
+0015 6401              XRL     A,#01H
+0017 7008              JNZ     ?C0017
+                                           ; SOURCE LINE # 224
+                                           ; SOURCE LINE # 225
+0019 900000      R     MOV     DPTR,#bFskDev
+001C E0                MOVX    A,@DPTR
+001D FF                MOV     R7,A
+001E 120000      E     LCALL   _vFCast_FskAdj
+                                           ; SOURCE LINE # 226
+0021         ?C0017:
+                                           ; SOURCE LINE # 228
+0021 120000      E     LCALL   bDmdTs_GetSamplesTaken
+0024 EF                MOV     A,R7
+0025 60FA              JZ      ?C0017
+                                           ; SOURCE LINE # 229
+                                           ; SOURCE LINE # 231
+                                           ; SOURCE LINE # 233
+0027 120000      E     LCALL   iDmdTs_GetLatestTemp
+002A 120000      E     LCALL   _vPa_Tune
+                                           ; SOURCE LINE # 234
+002D 120000      R     LCALL   vPacketAssemble
+                                           ; SOURCE LINE # 236
+0030 900000      R     MOV     DPTR,#rOdsSetup
+0033 E0                MOVX    A,@DPTR
+0034 FF                MOV     R7,A
+0035 120000      R     LCALL   _vConvertPacket
+                                           ; SOURCE LINE # 237
+0038 120000      E     LCALL   vStl_PreLoop
+003B         ?C0021:
+                                           ; SOURCE LINE # 239
+                                           ; SOURCE LINE # 241
+003B 120000      E     LCALL   lSys_GetMasterTime
+003E 8F00        R     MOV     lTimestamp+03H,R7
+0040 8E00        R     MOV     lTimestamp+02H,R6
+0042 8D00        R     MOV     lTimestamp+01H,R5
+0044 8C00        R     MOV     lTimestamp,R4
+                                           ; SOURCE LINE # 243
+0046 E5DA              MOV     A,PROT0_CTRL
+0048 5407              ANL     A,#07H
+004A D3                SETB    C
+004B 9401              SUBB    A,#01H
+004D 7480              MOV     A,#080H
+004F 9480              SUBB    A,#080H
+0051 4002              JC      ?C0023
+                                           ; SOURCE LINE # 244
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 14  
+
+                                           ; SOURCE LINE # 246
+0053 D285              SETB    GPIO_LED
+                                           ; SOURCE LINE # 247
+0055         ?C0023:
+                                           ; SOURCE LINE # 248
+0055 120000      E     LCALL   lSys_GetMasterTime
+0058 C3                CLR     C
+0059 EF                MOV     A,R7
+005A 9500        R     SUBB    A,lTimestamp+03H
+005C FF                MOV     R7,A
+005D EE                MOV     A,R6
+005E 9500        R     SUBB    A,lTimestamp+02H
+0060 FE                MOV     R6,A
+0061 ED                MOV     A,R5
+0062 9500        R     SUBB    A,lTimestamp+01H
+0064 FD                MOV     R5,A
+0065 EC                MOV     A,R4
+0066 9500        R     SUBB    A,lTimestamp
+0068 FC                MOV     R4,A
+0069 900000      R     MOV     DPTR,#lLEDOnTime
+006C E0                MOVX    A,@DPTR
+006D F8                MOV     R0,A
+006E A3                INC     DPTR
+006F E0                MOVX    A,@DPTR
+0070 F9                MOV     R1,A
+0071 A3                INC     DPTR
+0072 E0                MOVX    A,@DPTR
+0073 FA                MOV     R2,A
+0074 A3                INC     DPTR
+0075 E0                MOVX    A,@DPTR
+0076 FB                MOV     R3,A
+0077 D3                SETB    C
+0078 120000      E     LCALL   ?C?ULCMP
+007B 50D8              JNC     ?C0023
+                                           ; SOURCE LINE # 249
+                                           ; SOURCE LINE # 251
+                                           ; SOURCE LINE # 252
+007D C285              CLR     GPIO_LED
+                                           ; SOURCE LINE # 254
+007F 900000      R     MOV     DPTR,#bFrameSize
+0082 E0                MOVX    A,@DPTR
+0083 FD                MOV     R5,A
+0084 AF00        R     MOV     R7,pbFrameHead+01H
+0086 AE00        R     MOV     R6,pbFrameHead
+0088 120000      E     LCALL   _vStl_SingleTxLoop
+008B         ?C0025:
+                                           ; SOURCE LINE # 256
+008B 120000      E     LCALL   lSys_GetMasterTime
+008E C3                CLR     C
+008F EF                MOV     A,R7
+0090 9500        R     SUBB    A,lTimestamp+03H
+0092 FF                MOV     R7,A
+0093 EE                MOV     A,R6
+0094 9500        R     SUBB    A,lTimestamp+02H
+0096 FE                MOV     R6,A
+0097 ED                MOV     A,R5
+0098 9500        R     SUBB    A,lTimestamp+01H
+009A FD                MOV     R5,A
+009B EC                MOV     A,R4
+009C 9500        R     SUBB    A,lTimestamp
+009E FC                MOV     R4,A
+009F E4                CLR     A
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 15  
+
+00A0 7B64              MOV     R3,#064H
+00A2 FA                MOV     R2,A
+00A3 F9                MOV     R1,A
+00A4 F8                MOV     R0,A
+00A5 D3                SETB    C
+00A6 120000      E     LCALL   ?C?ULCMP
+00A9 50E0              JNC     ?C0025
+                                           ; SOURCE LINE # 258
+00AB 900000      R     MOV     DPTR,#bRepeatCount
+00AE E0                MOVX    A,@DPTR
+00AF 14                DEC     A
+00B0 F0                MOVX    @DPTR,A
+00B1 7088              JNZ     ?C0021
+                                           ; SOURCE LINE # 260
+00B3 120000      E     LCALL   vStl_PostLoop
+                                           ; SOURCE LINE # 263
+00B6 7F00              MOV     R7,#00H
+00B8 7E00              MOV     R6,#00H
+00BA 7D00              MOV     R5,#00H
+00BC 7C00              MOV     R4,#00H
+00BE 020000      E     LJMP    _vSys_SetMasterTime
+             ; FUNCTION vRepeatTxLoop (END)
+
+             ; FUNCTION isr_rtc (BEGIN)
+0000 C0E0              PUSH    ACC
+0002 C0F0              PUSH    B
+0004 C083              PUSH    DPH
+0006 C082              PUSH    DPL
+0008 C0D0              PUSH    PSW
+000A 75D008            MOV     PSW,#08H
+                                           ; SOURCE LINE # 270
+                                           ; SOURCE LINE # 276
+000D 539C7F            ANL     RTC_CTRL,#07FH
+                                           ; SOURCE LINE # 277
+0010 7F05              MOV     R7,#05H
+0012 120000      E     LCALL   _vSys_IncMasterTime
+                                           ; SOURCE LINE # 278
+0015 0500        R     INC     bIsr_DebounceCount
+                                           ; SOURCE LINE # 279
+0017 E500        R     MOV     A,bIsr_DebounceCount
+0019 5401              ANL     A,#01H
+001B 7003              JNZ     ?C0029
+                                           ; SOURCE LINE # 280
+                                           ; SOURCE LINE # 281
+001D 120000      E     LCALL   vBsr_Service
+                                           ; SOURCE LINE # 282
+                                           ; SOURCE LINE # 284
+0020         ?C0029:
+0020 D0D0              POP     PSW
+0022 D082              POP     DPL
+0024 D083              POP     DPH
+0026 D0F0              POP     B
+0028 D0E0              POP     ACC
+002A 32                RETI    
+             ; FUNCTION isr_rtc (END)
+
+             ; FUNCTION vButtonCheck (BEGIN)
+                                           ; SOURCE LINE # 300
+                                           ; SOURCE LINE # 301
+                                           ; SOURCE LINE # 303
+0000 C2AB              CLR     ERTC
+                                           ; SOURCE LINE # 304
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 16  
+
+0002 E4                CLR     A
+0003 900000      R     MOV     DPTR,#bButtonState
+0006 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 305
+0007 120000      E     LCALL   bBsr_GetPtsItemCnt
+000A EF                MOV     A,R7
+000B 6019              JZ      ?C0030
+                                           ; SOURCE LINE # 307
+                                           ; SOURCE LINE # 309
+000D 120000      E     LCALL   wBsr_Pop
+0010 EF                MOV     A,R7
+0011 900000      R     MOV     DPTR,#bButtonState
+0014 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 310
+0015 E500        R     MOV     A,bPrevBtn
+0017 6007              JZ      ?C0031
+                                           ; SOURCE LINE # 311
+                                           ; SOURCE LINE # 312
+0019 E0                MOVX    A,@DPTR
+001A F500        R     MOV     bPrevBtn,A
+                                           ; SOURCE LINE # 313
+001C E4                CLR     A
+001D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 314
+001E 8006              SJMP    ?C0030
+0020         ?C0031:
+                                           ; SOURCE LINE # 316
+                                           ; SOURCE LINE # 317
+0020 900000      R     MOV     DPTR,#bButtonState
+0023 E0                MOVX    A,@DPTR
+0024 F500        R     MOV     bPrevBtn,A
+                                           ; SOURCE LINE # 318
+                                           ; SOURCE LINE # 319
+0026         ?C0030:
+                                           ; SOURCE LINE # 321
+0026 D2AB              SETB    ERTC
+                                           ; SOURCE LINE # 323
+0028 22                RET     
+             ; FUNCTION vButtonCheck (END)
+
+             ; FUNCTION vPacketAssemble (BEGIN)
+                                           ; SOURCE LINE # 328
+                                           ; SOURCE LINE # 329
+                                           ; SOURCE LINE # 332
+0000 750000      R     MOV     pbFrameHead,#HIGH abFrame
+0003 750000      R     MOV     pbFrameHead+01H,#LOW abFrame
+                                           ; SOURCE LINE # 333
+0006 900000      R     MOV     DPTR,#bFrameSize
+0009 7418              MOV     A,#018H
+000B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 336
+;---- Variable 'i' assigned to Register 'R7' ----
+000C E4                CLR     A
+000D FF                MOV     R7,A
+000E         ?C0034:
+000E EF                MOV     A,R7
+000F C3                CLR     C
+0010 940D              SUBB    A,#0DH
+0012 7480              MOV     A,#080H
+0014 9480              SUBB    A,#080H
+0016 5010              JNC     ?C0035
+                                           ; SOURCE LINE # 337
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 17  
+
+                                           ; SOURCE LINE # 338
+0018 7400        R     MOV     A,#LOW abFrame
+001A 2F                ADD     A,R7
+001B F582              MOV     DPL,A
+001D E4                CLR     A
+001E 3400        R     ADDC    A,#HIGH abFrame
+0020 F583              MOV     DPH,A
+0022 E500        R     MOV     A,bPreamble
+0024 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 339
+0025 0F                INC     R7
+0026 80E6              SJMP    ?C0034
+0028         ?C0035:
+                                           ; SOURCE LINE # 341
+0028 5300E0      R     ANL     bStatus,#0E0H
+                                           ; SOURCE LINE # 343
+002B 900000      R     MOV     DPTR,#bButtonState
+002E E0                MOVX    A,@DPTR
+002F 541F              ANL     A,#01FH
+0031 4200        R     ORL     bStatus,A
+                                           ; SOURCE LINE # 345
+0033 900000      R     MOV     DPTR,#abFrame+0DH
+0036 742D              MOV     A,#02DH
+0038 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 346
+0039 A3                INC     DPTR
+003A 74D4              MOV     A,#0D4H
+003C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 347
+003D 900000      R     MOV     DPTR,#lPartID
+0040 E0                MOVX    A,@DPTR
+0041 900000      R     MOV     DPTR,#abFrame+0FH
+0044 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 348
+0045 900000      R     MOV     DPTR,#lPartID+01H
+0048 E0                MOVX    A,@DPTR
+0049 900000      R     MOV     DPTR,#abFrame+010H
+004C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 349
+004D 900000      R     MOV     DPTR,#lPartID+02H
+0050 E0                MOVX    A,@DPTR
+0051 900000      R     MOV     DPTR,#abFrame+011H
+0054 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 350
+0055 900000      R     MOV     DPTR,#lPartID+03H
+0058 E0                MOVX    A,@DPTR
+0059 900000      R     MOV     DPTR,#abFrame+012H
+005C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 351
+005D A3                INC     DPTR
+005E E500        R     MOV     A,bStatus
+0060 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 352
+0061 A3                INC     DPTR
+0062 E500        R     MOV     A,iBatteryMv
+0064 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 353
+0065 A3                INC     DPTR
+0066 E500        R     MOV     A,iBatteryMv+01H
+0068 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 354
+0069 E4                CLR     A
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 18  
+
+006A A3                INC     DPTR
+006B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 355
+006C A3                INC     DPTR
+006D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 357
+006E 020000      R     LJMP    vCalculateCrc
+             ; FUNCTION vPacketAssemble (END)
+
+             ; FUNCTION vCalculateCrc (BEGIN)
+                                           ; SOURCE LINE # 365
+                                           ; SOURCE LINE # 366
+                                           ; SOURCE LINE # 369
+0000 74FF              MOV     A,#0FFH
+0002 F500        R     MOV     wCrc,A
+0004 F500        R     MOV     wCrc+01H,A
+                                           ; SOURCE LINE # 370
+;---- Variable 'j' assigned to Register 'R5' ----
+0006 7D0F              MOV     R5,#0FH
+0008         ?C0038:
+0008 ED                MOV     A,R5
+0009 C3                CLR     C
+000A 9416              SUBB    A,#016H
+000C 7480              MOV     A,#080H
+000E 9480              SUBB    A,#080H
+0010 503D              JNC     ?C0039
+                                           ; SOURCE LINE # 371
+                                           ; SOURCE LINE # 372
+0012 7400        R     MOV     A,#LOW abFrame
+0014 2D                ADD     A,R5
+0015 F582              MOV     DPL,A
+0017 E4                CLR     A
+0018 3400        R     ADDC    A,#HIGH abFrame
+001A F583              MOV     DPH,A
+001C E0                MOVX    A,@DPTR
+001D FE                MOV     R6,A
+001E EE                MOV     A,R6
+001F 6200        R     XRL     wCrc,A
+                                           ; SOURCE LINE # 374
+;---- Variable 'i' assigned to Register 'R4' ----
+0021 7C08              MOV     R4,#08H
+0023         ?C0041:
+0023 EC                MOV     A,R4
+0024 6026              JZ      ?C0040
+                                           ; SOURCE LINE # 375
+                                           ; SOURCE LINE # 376
+0026 E500        R     MOV     A,wCrc
+0028 30E713            JNB     ACC.7,?C0044
+                                           ; SOURCE LINE # 377
+                                           ; SOURCE LINE # 378
+002B E500        R     MOV     A,wCrc+01H
+002D 25E0              ADD     A,ACC
+002F FF                MOV     R7,A
+0030 E500        R     MOV     A,wCrc
+0032 33                RLC     A
+0033 6480              XRL     A,#080H
+0035 F500        R     MOV     wCrc,A
+0037 EF                MOV     A,R7
+0038 6405              XRL     A,#05H
+003A F500        R     MOV     wCrc+01H,A
+                                           ; SOURCE LINE # 379
+003C 800B              SJMP    ?C0043
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 19  
+
+003E         ?C0044:
+                                           ; SOURCE LINE # 381
+                                           ; SOURCE LINE # 382
+003E E500        R     MOV     A,wCrc+01H
+0040 25E0              ADD     A,ACC
+0042 F500        R     MOV     wCrc+01H,A
+0044 E500        R     MOV     A,wCrc
+0046 33                RLC     A
+0047 F500        R     MOV     wCrc,A
+                                           ; SOURCE LINE # 383
+                                           ; SOURCE LINE # 384
+0049         ?C0043:
+0049 1C                DEC     R4
+004A 80D7              SJMP    ?C0041
+                                           ; SOURCE LINE # 385
+004C         ?C0040:
+004C 0D                INC     R5
+004D 80B9              SJMP    ?C0038
+004F         ?C0039:
+                                           ; SOURCE LINE # 388
+004F 900000      R     MOV     DPTR,#abFrame+016H
+0052 E500        R     MOV     A,wCrc
+0054 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 389
+0055 A3                INC     DPTR
+0056 E500        R     MOV     A,wCrc+01H
+0058 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 391
+0059 22                RET     
+             ; FUNCTION vCalculateCrc (END)
+
+             ; FUNCTION _vConvertPacket (BEGIN)
+                                           ; SOURCE LINE # 395
+;---- Variable 'bModType' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 396
+                                           ; SOURCE LINE # 399
+0000 EF                MOV     A,R7
+0001 6002              JZ      ?C0047
+                                           ; SOURCE LINE # 400
+                                           ; SOURCE LINE # 401
+0003 7FFF              MOV     R7,#0FFH
+                                           ; SOURCE LINE # 402
+0005         ?C0047:
+                                           ; SOURCE LINE # 403
+;---- Variable 'i' assigned to Register 'R6' ----
+0005 E4                CLR     A
+0006 FE                MOV     R6,A
+0007         ?C0048:
+0007 EE                MOV     A,R6
+0008 C3                CLR     C
+0009 9418              SUBB    A,#018H
+000B 7480              MOV     A,#080H
+000D 9480              SUBB    A,#080H
+000F 5031              JNC     ?C0051
+                                           ; SOURCE LINE # 404
+                                           ; SOURCE LINE # 405
+0011 7400        R     MOV     A,#LOW abFrame
+0013 2E                ADD     A,R6
+0014 F582              MOV     DPL,A
+0016 E4                CLR     A
+0017 3400        R     ADDC    A,#HIGH abFrame
+0019 F583              MOV     DPH,A
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 20  
+
+001B E0                MOVX    A,@DPTR
+001C FD                MOV     R5,A
+001D 54F0              ANL     A,#0F0H
+001F C4                SWAP    A
+0020 540F              ANL     A,#0FH
+0022 900000      R     MOV     DPTR,#abConvTable
+0025 93                MOVC    A,@A+DPTR
+0026 540F              ANL     A,#0FH
+0028 FC                MOV     R4,A
+;---- Variable 'low' assigned to Register 'R4' ----
+                                           ; SOURCE LINE # 406
+0029 ED                MOV     A,R5
+002A 540F              ANL     A,#0FH
+002C 93                MOVC    A,@A+DPTR
+002D 54F0              ANL     A,#0F0H
+002F FD                MOV     R5,A
+;---- Variable 'high' assigned to Register 'R5' ----
+                                           ; SOURCE LINE # 407
+0030 4C                ORL     A,R4
+0031 6F                XRL     A,R7
+0032 FB                MOV     R3,A
+0033 7400        R     MOV     A,#LOW abFrame
+0035 2E                ADD     A,R6
+0036 F582              MOV     DPL,A
+0038 E4                CLR     A
+0039 3400        R     ADDC    A,#HIGH abFrame
+003B F583              MOV     DPH,A
+003D EB                MOV     A,R3
+003E F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 408
+003F 0E                INC     R6
+0040 80C5              SJMP    ?C0048
+                                           ; SOURCE LINE # 410
+0042         ?C0051:
+0042 22                RET     
+             ; FUNCTION _vConvertPacket (END)
+
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 21  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+bBsr_GetPtsItemCnt . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+P0 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0080H  1
+RTC_CTRL . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   009CH  1
+P1 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0090H  1
+bBatStatus . . . . . . . . . . . . . .  PUBLIC   DATA   U_CHAR   0000H  1
+vPacketAssemble. . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  i. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+tFCast_XoSetup . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  fXoFreq. . . . . . . . . . . . . . .  MEMBER   -----  FLOAT    0000H  4
+  bLowCap. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+tBsr_PtsElement. . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  2
+  bButtonVector. . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  bTimestamp . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+EA . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00AFH  1
+LWORD. . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_LONG   -----  4
+iBatteryMv . . . . . . . . . . . . . .  PUBLIC   DATA   INT      0001H  2
+_iMVdd_Measure . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+PROT0_CTRL . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00DAH  1
+IE . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00A8H  1
+bPreamble. . . . . . . . . . . . . . .  PUBLIC   DATA   U_CHAR   0003H  1
+tOds_Setup . . . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  bModulationType. . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  bClkDiv. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  bEdgeRate. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  bGroupWidth. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  wBitRate . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0004H  2
+  bLcWarmInt . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  bDivWarmInt. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  bPaWarmInt . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+tBsr_Setup . . . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  bButtonMask. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  pbPtsReserveHead . . . . . . . . . .  MEMBER   -----  PTR      0001H  2
+  bPtsSize . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  bPushQualThresh. . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+size_t . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_INT    -----  2
+lLEDOnTime . . . . . . . . . . . . . .  PUBLIC   XDATA  U_LONG   0000H  4
+_vOds_Setup. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+lPartID. . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_LONG   0004H  4
+_vBsr_Setup. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bDmdTs_GetSamplesTaken . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+IP . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B8H  1
+tPa_Setup. . . . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  12
+  fAlpha . . . . . . . . . . . . . . .  MEMBER   -----  FLOAT    0000H  4
+  fBeta. . . . . . . . . . . . . . . .  MEMBER   -----  FLOAT    0004H  4
+  bLevel . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+  bMaxDrv. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0009H  1
+  wNominalCap. . . . . . . . . . . . .  MEMBER   -----  U_INT    000AH  2
+_vPa_Setup . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+CHAR . . . . . . . . . . . . . . . . .  TYPEDEF  -----  CHAR     -----  1
+i8 . . . . . . . . . . . . . . . . . .  TYPEDEF  -----  CHAR     -----  1
+fDesiredFreqFSK. . . . . . . . . . . .  PUBLIC   XDATA  FLOAT    0008H  4
+vCalculateCrc. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  i. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0004H  1
+  j. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0005H  1
+  wCrc . . . . . . . . . . . . . . . .  AUTO     DATA   U_INT    0000H  2
+PDMD . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00BAH  1
+main . . . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 22  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+fDesiredFreqOOK. . . . . . . . . . . .  PUBLIC   XDATA  FLOAT    000CH  4
+lTimestamp . . . . . . . . . . . . . .  PUBLIC   DATA   U_LONG   0004H  4
+_vPa_Tune. . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bPrevBtn . . . . . . . . . . . . . . .  PUBLIC   DATA   U_CHAR   0000H  1
+bFskDev. . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   0010H  1
+bIsr_DebounceCount . . . . . . . . . .  PUBLIC   DATA   U_CHAR   0008H  1
+_vSys_Setup. . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+u8 . . . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_CHAR   -----  1
+rOdsSetup. . . . . . . . . . . . . . .  PUBLIC   XDATA  STRUCT   0011H  9
+_vDmdTs_RunForTemp . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+ERTC . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00ABH  1
+rBsrSetup. . . . . . . . . . . . . . .  PUBLIC   XDATA  STRUCT   001AH  5
+wBsr_Pop . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+abFrame. . . . . . . . . . . . . . . .  PUBLIC   XDATA  ARRAY    001FH  24
+lSys_GetMasterTime . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+BYTE . . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_CHAR   -----  1
+pbFrameHead. . . . . . . . . . . . . .  PUBLIC   DATA   PTR      0009H  2
+_vSys_IncMasterTime. . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+rPaSetup . . . . . . . . . . . . . . .  PUBLIC   XDATA  STRUCT   0037H  12
+_vConvertPacket. . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  bModType . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+  i. . . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0006H  1
+  low. . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0004H  1
+  high . . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0005H  1
+fDesiredFreq . . . . . . . . . . . . .  PUBLIC   XDATA  FLOAT    0043H  4
+WORD . . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_INT    -----  2
+vFCast_Setup . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+vRepeatTxLoop. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+abConvTable. . . . . . . . . . . . . .  PUBLIC   CODE   ARRAY    0000H  16
+_vSys_SetMasterTime. . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_vFCast_Tune . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+_vSys_BandGapLdo . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+i32. . . . . . . . . . . . . . . . . .  TYPEDEF  -----  LONG     -----  4
+rXoSetup . . . . . . . . . . . . . . .  PUBLIC   XDATA  STRUCT   0047H  5
+i16. . . . . . . . . . . . . . . . . .  TYPEDEF  -----  INT      -----  2
+vStl_PostLoop. . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+vStl_PreLoop . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+bRepeatCount . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   004CH  1
+iDmdTs_GetLatestTemp . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+vBsr_Service . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+vButtonCheck . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+u32. . . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_LONG   -----  4
+SYSGEN . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00BEH  1
+MY_LED . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0084H  1
+_vStl_SingleTxLoop . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+u16. . . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_INT    -----  2
+TMR2CTRL . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00C8H  1
+PORT_CTRL. . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B5H  1
+wPacketCount . . . . . . . . . . . . .  PUBLIC   DATA   U_INT    000BH  2
+_vFCast_FskAdj . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+P0CON. . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00A4H  1
+GPIO_LED . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0085H  1
+bButtonState . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   004DH  1
+bStatus. . . . . . . . . . . . . . . .  PUBLIC   DATA   U_CHAR   000DH  1
+wchar_t. . . . . . . . . . . . . . . .  TYPEDEF  -----  CHAR     -----  1
+bFrameSize . . . . . . . . . . . . . .  PUBLIC   XDATA  U_CHAR   004EH  1
+abBsrPtsPlaceHolder. . . . . . . . . .  PUBLIC   XDATA  ARRAY    004FH  6
+C51 COMPILER V9.59.0.0   KEYFOB_DEMO_2_MAIN                                                01/22/2026 15:49:56 PAGE 23  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+_vStl_EncodeSetup. . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+lSys_GetProdId . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+vSys_Shutdown. . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+isr_rtc. . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+vSys_FirstPowerUp. . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+PSW. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D0H  1
+_vSys_LedIntensity . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    940    ----
+   CONSTANT SIZE    =     16    ----
+   XDATA SIZE       =     85    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     15       2
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,315 @@
+A51 MACRO ASSEMBLER  SI4010_ROM_KEIL                                                      01/22/2026 15:49:56 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN si4010_rom_keil.OBJ
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE si4010_rom_keil.a51 NOMOD51 DEBUG XREF EP INCDIR(..\src;..\..\common\src;c
+                      :\SiLabs\MCU\Inc) 
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ;-------------------------------------------------------------------------------
+                       2     ;                           Silicon Laboratories, Inc.
+                       3     ;                            http://www.silabs.com
+                       4     ;                                Copyright 2010
+                       5     ;-------------------------------------------------------------------------------
+                       6     ;
+                       7     ;     FILE:       si4010_rom_keil.a51
+                       8     ;     TARGET:     Si4010
+                       9     ;     TOOLCHAIN:  Keil
+                      10     ;     DATE:       June 14, 2010, Monday
+                      11     ;     RELEASE:    2.3 (MPech), ROM version 02.00, trim 3
+                      12     ;
+                      13     ;---------------------------------------------------------------------------
+                      14     ;
+                      15     ;     DESCRIPTION:
+                      16     ;       This file is must be compiled and linked into builds which intend
+                      17     ;       to user ROM functions for the ROM release specified in the header
+                      18     ;       above. This file can only be used with Keil toolchain.
+                      19     ;
+                      20     ;---------------------------------------------------------------------------
+                      21     
+                      22     RomSymbol MACRO SymName SymAddress
+                      23               PUBLIC SymName
+                      24                      SymName CODE SymAddress
+                      25     ENDM
+                      26     
+                      27     RomSymbol  _VAES_CIPHER,                   08003H
+                      30     RomSymbol  _VAES_INVCIPHER,                08006H
+                      33     RomSymbol  _VAES_INVGENKEY,                08009H
+                      36     RomSymbol   WBSR_GETCURRENTBUTTON,         0801BH
+                      39     RomSymbol   BBSR_GETPTSITEMCNT,            08015H
+                      42     RomSymbol   BBSR_GETTIMESTAMP,             0801EH
+                      45     RomSymbol  _VBSR_INITPTS,                  08012H
+                      48     RomSymbol   WBSR_POP,                      0800CH
+                      51     RomSymbol   VBSR_SERVICE,                  08018H
+                      54     RomSymbol  _VBSR_SETUP,                    0800FH
+                      57     RomSymbol   VDMDTS_CLEARDMD,               0802DH
+                      60     RomSymbol   VDMDTS_CLEARDMDINTFLAG,        08030H
+                      63     RomSymbol  _VDMDTS_ENABLE,                 08039H
+                      66     RomSymbol   IDMDTS_GETDATA,                011EFH
+                      69     RomSymbol   IDMDTS_GETLATESTDMDSAMPLE,     08027H
+                      72     RomSymbol   IDMDTS_GETLATESTTEMP,          0802AH
+                      75     RomSymbol   BDMDTS_GETSAMPLESTAKEN,        08036H
+                      78     RomSymbol   VDMDTS_ISRCALL,                011ECH
+                      81     RomSymbol  _VDMDTS_RESETCOUNTS,            0803FH
+                      84     RomSymbol  _VDMDTS_RUNFORTEMP,             0803CH
+                      87     RomSymbol  _VDMDTS_SETUP,                  08021H
+                      90     RomSymbol  _BENC_4B5BENCODE,               08045H
+                      93     RomSymbol  _BENC_MANCHESTERENCODE,         08048H
+                      96     RomSymbol  _VENC_SET4B5BLASTBIT,           08042H
+                      99     RomSymbol  _VFCAST_FSKADJ,                 080FCH
+                     102     RomSymbol   VFCAST_SETUP,                  080F9H
+                     105     RomSymbol  _VFCAST_FINETUNE,               0809CH
+                     108     RomSymbol  _VFCAST_TUNE,                   080F6H
+                     111     RomSymbol  _VFCAST_XOSETUP,                080FFH
+                     114     RomSymbol   LFC_GETCOUNT,                  08057H
+                     117     RomSymbol   VFC_POLLDONE,                  08051H
+A51 MACRO ASSEMBLER  SI4010_ROM_KEIL                                                      01/22/2026 15:49:56 PAGE     2
+
+                     120     RomSymbol  _VFC_SETUP,                     0804BH
+                     123     RomSymbol   VFC_STARTCOUNT,                0804EH
+                     126     RomSymbol   LFC_STARTPOLLGETCOUNT,         08054H
+                     129     RomSymbol  _BHVRAM_READ,                   0805AH
+                     132     RomSymbol  _VHVRAM_WRITE,                  0805DH
+                     135     RomSymbol  _LMTP_GETDECCOUNT,              08060H
+                     138     RomSymbol  _VMTP_INCCOUNT,                 08063H
+                     141     RomSymbol  PBMTP_READ,                     0806CH
+                     144     RomSymbol  _VMTP_SETDECCOUNT,              08072H
+                     147     RomSymbol   VMTP_STROBE,                   0806FH
+                     150     RomSymbol  _BMTP_WRITE,                    08069H
+                     153     RomSymbol  _IMVDD_MEASURE,                 080F0H
+                     156     RomSymbol   BNVM_COPYBLOCK,                0807BH
+                     159     RomSymbol   WNVM_GETADDR,                  08078H
+                     162     RomSymbol   VNVM_MCDISABLEREAD,            08081H
+                     165     RomSymbol   VNVM_MCENABLEREAD,             0807EH
+                     168     RomSymbol  _VNVM_SETADDR,                  08075H
+                     171     RomSymbol  _VODS_ENABLE,                   08087H
+                     174     RomSymbol  _VODS_SETUP,                    08084H
+                     177     RomSymbol  _VODS_WRITEDATA,                0808AH
+                     180     RomSymbol  _VPA_SETUP,                     011E9H
+                     183     RomSymbol  _VPA_TUNE,                      08090H
+                     186     RomSymbol  _VSLEEPTIM_ADDTXTIMETOCOUNTER,  080EDH
+                     189     RomSymbol   BSLEEPTIM_CHECKDUTYCYCLE,      080EAH
+                     192     RomSymbol   LSLEEPTIM_GETONEHOURVALUE,     011E0H
+                     195     RomSymbol   LSLEEPTIM_GETCOUNT,            080E4H
+                     198     RomSymbol  _VSLEEPTIM_SETCOUNT,            080E7H
+                     201     RomSymbol  _BSTL_ENCODEBYTE,               080DEH
+                     204     RomSymbol  _VSTL_ENCODESETUP,              080E1H
+                     207     RomSymbol   VSTL_POSTLOOP,                 011E3H
+                     210     RomSymbol   VSTL_PRELOOP,                  080D5H
+                     213     RomSymbol  _VSTL_SINGLETXLOOP,             080DBH
+                     216     RomSymbol  _VSYS_16BITDECLOOP,             080C3H
+                     219     RomSymbol  _VSYS_8BITDECLOOP,              080C6H
+                     222     RomSymbol  _VSYS_BANDGAPLDO,               080A2H
+                     225     RomSymbol   VSYS_FIRSTPOWERUP,             080C9H
+                     228     RomSymbol   VSYS_FORCELC,                  08102H
+                     231     RomSymbol   BSYS_GETBOOTSTATUS,            080CCH
+                     234     RomSymbol   WSYS_GETCHIPID,                080A8H
+                     237     RomSymbol   WSYS_GETKEILVER,               080CFH
+                     240     RomSymbol   LSYS_GETMASTERTIME,            080B4H
+                     243     RomSymbol   LSYS_GETPRODID,                011E6H
+                     246     RomSymbol   BSYS_GETREVID,                 080ABH
+                     249     RomSymbol   WSYS_GETROMID,                 080A5H
+                     252     RomSymbol  _VSYS_INCMASTERTIME,            080B7H
+                     255     RomSymbol  _VSYS_LEDINTENSITY,             080BDH
+                     258     RomSymbol   VSYS_LPOSCADJ,                 080D2H
+                     261     RomSymbol  _VSYS_SETCLKSYS,                080AEH
+                     264     RomSymbol  _VSYS_SETMASTERTIME,            080BAH
+                     267     RomSymbol  _VSYS_SETUP,                    080B1H
+                     270     RomSymbol   VSYS_SHUTDOWN,                 080C0H
+                     273     
+                     274     ;
+                     275     ;---------------------------------------------------------------------------
+                     276     ;
+                     277     
+                     278     RomSymbol ?C?ULSHR,                        08400H
+                     281     RomSymbol ?C?LSHL,                         08413H
+                     284     RomSymbol ?C?OFFXADD,                      08426H
+                     287     RomSymbol ?C?FPSUB,                        08435H
+                     290     RomSymbol ?C?FPADD,                        08439H
+                     293     RomSymbol ?C?FPMUL,                        0852AH
+                     296     RomSymbol ?C?FCASTL,                       08630H
+                     299     RomSymbol ?C?FCASTC,                       0863AH
+                     302     RomSymbol ?C?FCASTI,                       08635H
+                     305     RomSymbol ?C?CASTF,                        0866EH
+A51 MACRO ASSEMBLER  SI4010_ROM_KEIL                                                      01/22/2026 15:49:56 PAGE     3
+
+                     308     RomSymbol ?C?FPGETOPN2,                    086A5H
+                     311     RomSymbol ?C?FPNANRESULT,                  086DAH
+                     314     RomSymbol ?C?FPOVERFLOW,                   086E4H
+                     317     RomSymbol ?C?FPRESULT,                     086BCH
+                     320     RomSymbol ?C?FPRESULT2,                    086D0H
+                     323     RomSymbol ?C?FPUNDERFLOW,                  086E1H
+                     326     RomSymbol ?C?LNEG,                         086EFH
+                     329     RomSymbol ?C?LLDIDATA,                     086FDH
+                     332     RomSymbol ?C?LLDXDATA,                     08709H
+                     335     RomSymbol ?C?LLDIDATA0,                    08715H
+                     338     RomSymbol ?C?LLDXDATA0,                    08722H
+                     341     RomSymbol ?C?LSTIDATA,                     0872EH
+                     344     RomSymbol ?C?LSTXDATA,                     0873AH
+                     347     RomSymbol ?C?LMUL,                         08746H
+                     350     RomSymbol ?C?ULCMP,                        08795H
+                     353     RomSymbol ?C?LOR,                          087A6H
+                     356     RomSymbol ?C?LADD,                         087B3H
+                     359     RomSymbol ?C?IMUL,                         087C0H
+                     362     RomSymbol ?C?LSUB,                         087D2H
+                     365     RomSymbol ?C?LXOR,                         087E0H
+                     368     RomSymbol ?C?FPDIV,                        087F0H
+                     371     RomSymbol ?C?ULDIV,                        088C9H
+                     374     RomSymbol ?C?SIDIV,                        0895BH
+                     377     RomSymbol ?C?FPCMP3,                       089E6H
+                     380     RomSymbol ?C?FPCMP,                        089E8H
+                     383     RomSymbol ?C?UIDIV,                        08991H
+                     386     RomSymbol ?C?SLDIV,                        08A6FH
+                     389     RomSymbol _ABS,                            08AB3H
+                     392     RomSymbol ?C?ICALL,                        08A53H
+                     395     RomSymbol ?C?ICALL2,                       08A57H
+                     398     RomSymbol ?C?IILDX,                        08A59H
+                     401     
+                     402     END
+                             
+                             ;
+                             ;-------------------------------------------------------------------------------
+                             ;
+A51 MACRO ASSEMBLER  SI4010_ROM_KEIL                                                      01/22/2026 15:49:56 PAGE     4
+
+XREF SYMBOL TABLE LISTING
+---- ------ ----- -------
+
+
+N A M E                        T Y P E  V A L U E   ATTRIBUTES / REFERENCES
+
+?C?CASTF. . . . . . . . . . .  C ADDR   866EH   A      306 307#
+?C?FCASTC . . . . . . . . . .  C ADDR   863AH   A      300 301#
+?C?FCASTI . . . . . . . . . .  C ADDR   8635H   A      303 304#
+?C?FCASTL . . . . . . . . . .  C ADDR   8630H   A      297 298#
+?C?FPADD. . . . . . . . . . .  C ADDR   8439H   A      291 292#
+?C?FPCMP. . . . . . . . . . .  C ADDR   89E8H   A      381 382#
+?C?FPCMP3 . . . . . . . . . .  C ADDR   89E6H   A      378 379#
+?C?FPDIV. . . . . . . . . . .  C ADDR   87F0H   A      369 370#
+?C?FPGETOPN2. . . . . . . . .  C ADDR   86A5H   A      309 310#
+?C?FPMUL. . . . . . . . . . .  C ADDR   852AH   A      294 295#
+?C?FPNANRESULT. . . . . . . .  C ADDR   86DAH   A      312 313#
+?C?FPOVERFLOW . . . . . . . .  C ADDR   86E4H   A      315 316#
+?C?FPRESULT . . . . . . . . .  C ADDR   86BCH   A      318 319#
+?C?FPRESULT2. . . . . . . . .  C ADDR   86D0H   A      321 322#
+?C?FPSUB. . . . . . . . . . .  C ADDR   8435H   A      288 289#
+?C?FPUNDERFLOW. . . . . . . .  C ADDR   86E1H   A      324 325#
+?C?ICALL. . . . . . . . . . .  C ADDR   8A53H   A      393 394#
+?C?ICALL2 . . . . . . . . . .  C ADDR   8A57H   A      396 397#
+?C?IILDX. . . . . . . . . . .  C ADDR   8A59H   A      399 400#
+?C?IMUL . . . . . . . . . . .  C ADDR   87C0H   A      360 361#
+?C?LADD . . . . . . . . . . .  C ADDR   87B3H   A      357 358#
+?C?LLDIDATA . . . . . . . . .  C ADDR   86FDH   A      330 331#
+?C?LLDIDATA0. . . . . . . . .  C ADDR   8715H   A      336 337#
+?C?LLDXDATA . . . . . . . . .  C ADDR   8709H   A      333 334#
+?C?LLDXDATA0. . . . . . . . .  C ADDR   8722H   A      339 340#
+?C?LMUL . . . . . . . . . . .  C ADDR   8746H   A      348 349#
+?C?LNEG . . . . . . . . . . .  C ADDR   86EFH   A      327 328#
+?C?LOR. . . . . . . . . . . .  C ADDR   87A6H   A      354 355#
+?C?LSHL . . . . . . . . . . .  C ADDR   8413H   A      282 283#
+?C?LSTIDATA . . . . . . . . .  C ADDR   872EH   A      342 343#
+?C?LSTXDATA . . . . . . . . .  C ADDR   873AH   A      345 346#
+?C?LSUB . . . . . . . . . . .  C ADDR   87D2H   A      363 364#
+?C?LXOR . . . . . . . . . . .  C ADDR   87E0H   A      366 367#
+?C?OFFXADD. . . . . . . . . .  C ADDR   8426H   A      285 286#
+?C?SIDIV. . . . . . . . . . .  C ADDR   895BH   A      375 376#
+?C?SLDIV. . . . . . . . . . .  C ADDR   8A6FH   A      387 388#
+?C?UIDIV. . . . . . . . . . .  C ADDR   8991H   A      384 385#
+?C?ULCMP. . . . . . . . . . .  C ADDR   8795H   A      351 352#
+?C?ULDIV. . . . . . . . . . .  C ADDR   88C9H   A      372 373#
+?C?ULSHR. . . . . . . . . . .  C ADDR   8400H   A      279 280#
+BBSR_GETPTSITEMCNT. . . . . .  C ADDR   8015H   A      40 41#
+BBSR_GETTIMESTAMP . . . . . .  C ADDR   801EH   A      43 44#
+BDMDTS_GETSAMPLESTAKEN. . . .  C ADDR   8036H   A      76 77#
+BNVM_COPYBLOCK. . . . . . . .  C ADDR   807BH   A      157 158#
+BSLEEPTIM_CHECKDUTYCYCLE. . .  C ADDR   80EAH   A      190 191#
+BSYS_GETBOOTSTATUS. . . . . .  C ADDR   80CCH   A      232 233#
+BSYS_GETREVID . . . . . . . .  C ADDR   80ABH   A      247 248#
+IDMDTS_GETDATA. . . . . . . .  C ADDR   11EFH   A      67 68#
+IDMDTS_GETLATESTDMDSAMPLE . .  C ADDR   8027H   A      70 71#
+IDMDTS_GETLATESTTEMP. . . . .  C ADDR   802AH   A      73 74#
+LFC_GETCOUNT. . . . . . . . .  C ADDR   8057H   A      115 116#
+LFC_STARTPOLLGETCOUNT . . . .  C ADDR   8054H   A      127 128#
+LSLEEPTIM_GETCOUNT. . . . . .  C ADDR   80E4H   A      196 197#
+LSLEEPTIM_GETONEHOURVALUE . .  C ADDR   11E0H   A      193 194#
+LSYS_GETMASTERTIME. . . . . .  C ADDR   80B4H   A      241 242#
+LSYS_GETPRODID. . . . . . . .  C ADDR   11E6H   A      244 245#
+PBMTP_READ. . . . . . . . . .  C ADDR   806CH   A      142 143#
+VBSR_SERVICE. . . . . . . . .  C ADDR   8018H   A      52 53#
+VDMDTS_CLEARDMD . . . . . . .  C ADDR   802DH   A      58 59#
+VDMDTS_CLEARDMDINTFLAG. . . .  C ADDR   8030H   A      61 62#
+A51 MACRO ASSEMBLER  SI4010_ROM_KEIL                                                      01/22/2026 15:49:56 PAGE     5
+
+VDMDTS_ISRCALL. . . . . . . .  C ADDR   11ECH   A      79 80#
+VFCAST_SETUP. . . . . . . . .  C ADDR   80F9H   A      103 104#
+VFC_POLLDONE. . . . . . . . .  C ADDR   8051H   A      118 119#
+VFC_STARTCOUNT. . . . . . . .  C ADDR   804EH   A      124 125#
+VMTP_STROBE . . . . . . . . .  C ADDR   806FH   A      148 149#
+VNVM_MCDISABLEREAD. . . . . .  C ADDR   8081H   A      163 164#
+VNVM_MCENABLEREAD . . . . . .  C ADDR   807EH   A      166 167#
+VSTL_POSTLOOP . . . . . . . .  C ADDR   11E3H   A      208 209#
+VSTL_PRELOOP. . . . . . . . .  C ADDR   80D5H   A      211 212#
+VSYS_FIRSTPOWERUP . . . . . .  C ADDR   80C9H   A      226 227#
+VSYS_FORCELC. . . . . . . . .  C ADDR   8102H   A      229 230#
+VSYS_LPOSCADJ . . . . . . . .  C ADDR   80D2H   A      259 260#
+VSYS_SHUTDOWN . . . . . . . .  C ADDR   80C0H   A      271 272#
+WBSR_GETCURRENTBUTTON . . . .  C ADDR   801BH   A      37 38#
+WBSR_POP. . . . . . . . . . .  C ADDR   800CH   A      49 50#
+WNVM_GETADDR. . . . . . . . .  C ADDR   8078H   A      160 161#
+WSYS_GETCHIPID. . . . . . . .  C ADDR   80A8H   A      235 236#
+WSYS_GETKEILVER . . . . . . .  C ADDR   80CFH   A      238 239#
+WSYS_GETROMID . . . . . . . .  C ADDR   80A5H   A      250 251#
+_ABS. . . . . . . . . . . . .  C ADDR   8AB3H   A      390 391#
+_BENC_4B5BENCODE. . . . . . .  C ADDR   8045H   A      91 92#
+_BENC_MANCHESTERENCODE. . . .  C ADDR   8048H   A      94 95#
+_BHVRAM_READ. . . . . . . . .  C ADDR   805AH   A      130 131#
+_BMTP_WRITE . . . . . . . . .  C ADDR   8069H   A      151 152#
+_BSTL_ENCODEBYTE. . . . . . .  C ADDR   80DEH   A      202 203#
+_IMVDD_MEASURE. . . . . . . .  C ADDR   80F0H   A      154 155#
+_LMTP_GETDECCOUNT . . . . . .  C ADDR   8060H   A      136 137#
+_VAES_CIPHER. . . . . . . . .  C ADDR   8003H   A      28 29#
+_VAES_INVCIPHER . . . . . . .  C ADDR   8006H   A      31 32#
+_VAES_INVGENKEY . . . . . . .  C ADDR   8009H   A      34 35#
+_VBSR_INITPTS . . . . . . . .  C ADDR   8012H   A      46 47#
+_VBSR_SETUP . . . . . . . . .  C ADDR   800FH   A      55 56#
+_VDMDTS_ENABLE. . . . . . . .  C ADDR   8039H   A      64 65#
+_VDMDTS_RESETCOUNTS . . . . .  C ADDR   803FH   A      82 83#
+_VDMDTS_RUNFORTEMP. . . . . .  C ADDR   803CH   A      85 86#
+_VDMDTS_SETUP . . . . . . . .  C ADDR   8021H   A      88 89#
+_VENC_SET4B5BLASTBIT. . . . .  C ADDR   8042H   A      97 98#
+_VFCAST_FINETUNE. . . . . . .  C ADDR   809CH   A      106 107#
+_VFCAST_FSKADJ. . . . . . . .  C ADDR   80FCH   A      100 101#
+_VFCAST_TUNE. . . . . . . . .  C ADDR   80F6H   A      109 110#
+_VFCAST_XOSETUP . . . . . . .  C ADDR   80FFH   A      112 113#
+_VFC_SETUP. . . . . . . . . .  C ADDR   804BH   A      121 122#
+_VHVRAM_WRITE . . . . . . . .  C ADDR   805DH   A      133 134#
+_VMTP_INCCOUNT. . . . . . . .  C ADDR   8063H   A      139 140#
+_VMTP_SETDECCOUNT . . . . . .  C ADDR   8072H   A      145 146#
+_VNVM_SETADDR . . . . . . . .  C ADDR   8075H   A      169 170#
+_VODS_ENABLE. . . . . . . . .  C ADDR   8087H   A      172 173#
+_VODS_SETUP . . . . . . . . .  C ADDR   8084H   A      175 176#
+_VODS_WRITEDATA . . . . . . .  C ADDR   808AH   A      178 179#
+_VPA_SETUP. . . . . . . . . .  C ADDR   11E9H   A      181 182#
+_VPA_TUNE . . . . . . . . . .  C ADDR   8090H   A      184 185#
+_VSLEEPTIM_ADDTXTIMETOCOUNTER  C ADDR   80EDH   A      187 188#
+_VSLEEPTIM_SETCOUNT . . . . .  C ADDR   80E7H   A      199 200#
+_VSTL_ENCODESETUP . . . . . .  C ADDR   80E1H   A      205 206#
+_VSTL_SINGLETXLOOP. . . . . .  C ADDR   80DBH   A      214 215#
+_VSYS_16BITDECLOOP. . . . . .  C ADDR   80C3H   A      217 218#
+_VSYS_8BITDECLOOP . . . . . .  C ADDR   80C6H   A      220 221#
+_VSYS_BANDGAPLDO. . . . . . .  C ADDR   80A2H   A      223 224#
+_VSYS_INCMASTERTIME . . . . .  C ADDR   80B7H   A      253 254#
+_VSYS_LEDINTENSITY. . . . . .  C ADDR   80BDH   A      256 257#
+_VSYS_SETCLKSYS . . . . . . .  C ADDR   80AEH   A      262 263#
+_VSYS_SETMASTERTIME . . . . .  C ADDR   80BAH   A      265 266#
+_VSYS_SETUP . . . . . . . . .  C ADDR   80B1H   A      268 269#
+
+
+REGISTER BANK(S) USED: 0 
+A51 MACRO ASSEMBLER  SI4010_ROM_KEIL                                                      01/22/2026 15:49:56 PAGE     6
+
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

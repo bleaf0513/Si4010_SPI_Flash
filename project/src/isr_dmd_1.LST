@@ -1,0 +1,178 @@
+C51 COMPILER V9.02   ISR_DMD                                                               11/20/2012 14:30:53 PAGE 1   
+
+
+C51 COMPILER V9.02, COMPILATION OF MODULE ISR_DMD
+OBJECT MODULE PLACED IN isr_dmd.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe isr_dmd.c DB OE BR BROWSE NOAREGS NOINTPROMOTE DEBUG OBJECTEXTEND CODE SYMB
+                    -OLS INCDIR(..\src;..\..\common\src;c:\SiLabs\MCU\Inc)
+
+line level    source
+
+   1          /*------------------------------------------------------------------------------
+   2           *                          Silicon Laboratories, Inc.
+   3           *                           http://www.silabs.com
+   4           *                               Copyright 2010
+   5           *------------------------------------------------------------------------------
+   6           *
+   7           *    FILE:       isr_dmd.c
+   8           *    TARGET:     Si4010
+   9           *    TOOLCHAIN:  Generic
+  10           *    DATE:       March 24, 2010, Wednesday
+  11           *    RELEASE:    2.0 (JimG), ROM version 02.00
+  12           *
+  13           *------------------------------------------------------------------------------
+  14           *
+  15           *    DESCRIPTION:
+  16           *      This module contains the interrupt service routine for
+  17           *      the temperature demodulator (DMD). It is triggered when
+  18           *      a demodulator sample is ready.
+  19           *
+  20           *------------------------------------------------------------------------------
+  21           *
+  22           *    INCLUDES:
+  23           */
+  24          #include "si4010.h"
+  25          #include "si4010_api_rom.h"
+  26          
+  27          /*
+  28           *------------------------------------------------------------------------------
+  29           *    MACROS:
+  30           *    TYPEDEFS:
+  31           *    PROTOTYPES OF STATIC FUNCTIONS:
+  32           *    STATIC CONSTANT VARIABLES:
+  33           *    STATIC VARIABLES GLOBAL TO ALL LOCAL FUNCTIONS:
+  34           *==============================================================================
+  35           *
+  36           *    VISIBLE FUNCTIONS:
+  37           */
+  38          void    vIsr_Dmd
+  39                  (
+  40                  void
+  41                  )
+  42                  interrupt INTERRUPT_DMD using 2  /* Use RB2 for this ISR */
+  43          /*------------------------------------------------------------------------------
+  44           *
+  45           *    FUNCTION DESCRIPTION:
+  46           *      This is the interrupt service routine for the DMD. It clears the DMD
+  47           *      interrupt flag and calls the vDmdTs_IsrCall() which handles the
+  48           *      interface to the demodulator and temperature sensor.
+  49           *
+  50           *------------------------------------------------------------------------------
+  51           */
+  52          {
+  53   1      /*
+  54   1       *------------------------------------------------------------------------------
+C51 COMPILER V9.02   ISR_DMD                                                               11/20/2012 14:30:53 PAGE 2   
+
+  55   1       *
+  56   1       *    VARIABLES:
+  57   1       *
+  58   1       *------------------------------------------------------------------------------
+  59   1       */
+  60   1      
+  61   1      /* Clear the demodulator interrupt flag */
+  62   1        vDmdTs_ClearDmdIntFlag();
+  63   1      
+  64   1      /* Call DMD TS function that handles skipping samples and getting the sample
+  65   1       * from the temperature demodulator. */
+  66   1        vDmdTs_IsrCall();
+  67   1      }
+  68          
+  69          /*
+  70           *------------------------------------------------------------------------------
+  71           */
+  72          
+  73          
+  74          
+C51 COMPILER V9.02   ISR_DMD                                                               11/20/2012 14:30:53 PAGE 3   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION vIsr_Dmd (BEGIN)
+0000 C0E0              PUSH    ACC
+0002 C0F0              PUSH    B
+0004 C083              PUSH    DPH
+0006 C082              PUSH    DPL
+0008 C0D0              PUSH    PSW
+000A 75D010            MOV     PSW,#010H
+                                           ; SOURCE LINE # 38
+                                           ; SOURCE LINE # 42
+                                           ; SOURCE LINE # 62
+000D 120000      E     LCALL   vDmdTs_ClearDmdIntFlag
+                                           ; SOURCE LINE # 66
+0010 120000      E     LCALL   vDmdTs_IsrCall
+                                           ; SOURCE LINE # 67
+0013 D0D0              POP     PSW
+0015 D082              POP     DPL
+0017 D083              POP     DPH
+0019 D0F0              POP     B
+001B D0E0              POP     ACC
+001D 32                RETI    
+             ; FUNCTION vIsr_Dmd (END)
+
+C51 COMPILER V9.02   ISR_DMD                                                               11/20/2012 14:30:53 PAGE 4   
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+P0 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0080H  1
+P1 . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0090H  1
+tFCast_XoSetup . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  fXoFreq. . . . . . . . . . . . . . .  MEMBER   -----  FLOAT    0000H  4
+  bLowCap. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+tBsr_PtsElement. . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  2
+  bButtonVector. . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  bTimestamp . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+LWORD. . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_LONG   -----  4
+IE . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00A8H  1
+tOds_Setup . . . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  bModulationType. . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  bClkDiv. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0001H  1
+  bEdgeRate. . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0002H  1
+  bGroupWidth. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  wBitRate . . . . . . . . . . . . . .  MEMBER   -----  U_INT    0004H  2
+  bLcWarmInt . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0006H  1
+  bDivWarmInt. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0007H  1
+  bPaWarmInt . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+tBsr_Setup . . . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  5
+  bButtonMask. . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0000H  1
+  pbPtsReserveHead . . . . . . . . . .  MEMBER   -----  PTR      0001H  2
+  bPtsSize . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0003H  1
+  bPushQualThresh. . . . . . . . . . .  MEMBER   -----  U_CHAR   0004H  1
+IP . . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00B8H  1
+tPa_Setup. . . . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  12
+  fAlpha . . . . . . . . . . . . . . .  MEMBER   -----  FLOAT    0000H  4
+  fBeta. . . . . . . . . . . . . . . .  MEMBER   -----  FLOAT    0004H  4
+  bLevel . . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0008H  1
+  bMaxDrv. . . . . . . . . . . . . . .  MEMBER   -----  U_CHAR   0009H  1
+  wNominalCap. . . . . . . . . . . . .  MEMBER   -----  U_INT    000AH  2
+vIsr_Dmd . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+CHAR . . . . . . . . . . . . . . . . .  TYPEDEF  -----  CHAR     -----  1
+i8 . . . . . . . . . . . . . . . . . .  TYPEDEF  -----  CHAR     -----  1
+u8 . . . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_CHAR   -----  1
+BYTE . . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_CHAR   -----  1
+WORD . . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_INT    -----  2
+i32. . . . . . . . . . . . . . . . . .  TYPEDEF  -----  LONG     -----  4
+i16. . . . . . . . . . . . . . . . . .  TYPEDEF  -----  INT      -----  2
+u32. . . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_LONG   -----  4
+u16. . . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_INT    -----  2
+TMR2CTRL . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00C8H  1
+vDmdTs_ClearDmdIntFlag . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+vDmdTs_IsrCall . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+PSW. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D0H  1
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     30    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

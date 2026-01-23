@@ -1,0 +1,203 @@
+A51 MACRO ASSEMBLER  KEYFOB_STARTUP                                                       11/20/2012 14:30:53 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.02
+OBJECT MODULE PLACED IN keyfob_startup.OBJ
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE keyfob_startup.a51 NOMOD51 DEBUG XREF EP INCDIR(..\src;..\..\common\src;c:
+                      \SiLabs\MCU\Inc) 
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ;-------------------------------------------------------------------------------
+                       2     ;                           Silicon Laboratories, Inc.
+                       3     ;                            http://www.silabs.com
+                       4     ;                                Copyright 2010
+                       5     ;-------------------------------------------------------------------------------
+                       6     ;
+                       7     ;     FILE:       keyfob_startup.a51 .. startup for keyfob_demo project
+                       8     ;     TARGET:     Si4010
+                       9     ;     TOOLCHAIN:  Keil
+                      10     ;     DATE:       May 10, 2010
+                      11     ;     RELEASE:    1.0 (TamasN), ROM version 02.00
+                      12     ;
+                      13     ;---------------------------------------------------------------------------
+                      14     ;
+                      15     ;       DESCRIPTION:
+                      16     ;         The original file is part of the C51 Compiler package.
+                      17     ;         Part of the file are Copyright (c) 1988-2005 Keil Elektronik GmbH
+                      18     ;         and Keil Software, Inc.
+                      19     ;         Version 8.01
+                      20     ;
+                      21     ;         This is a startup file for the keyfob_demo project.
+                      22     ;         The only difference from the
+                      23     ;
+                      24     ;           ..\common\src\startup.a51
+                      25     ;
+                      26     ;         is that is reserves a stack space other then 1.
+                      27     ;
+                      28     ;         Startup file for Si4010 project for the Keil C. It must
+                      29     ;         be included in any of the C projects and compiled and linked
+                      30     ;         with the main() file. Only needed for the main() application
+                      31     ;         build.
+                      32     ;
+                      33     ;         All the conditionals were removed from the original Keil
+                      34     ;         file and only those needed are kept. What this code does:
+                      35     ;
+                      36     ;           1. Sets P2 for possible PDATA use for XREG
+                      37     ;           2. Sets SP after the last used data in IDATA
+                      38     ;
+                      39     ;         All DATA/IDATA and XDATA variable initializations were removed.
+                      40     ;         If user application relies on the zero initial values
+                      41     ;         of variables then the code should be return there.
+                      42     ;
+                      43     ;         Note that CODE/XDATA share the same RAM space. Also note that
+                      44     ;         the XDATA memory can be cleared only up to the address value
+                      45     ;         (not inclusive) specified in the WORD (2 byte, big endian)
+                      46     ;         variable wBoot_DpramTrimBeg at address 0x11F3. The XDATA
+                      47     ;         area clearing code must read this variable to get the first
+                      48     ;         occupied address of XDATA which must not be touched.
+                      49     ;         User usable CODE/XDATA RAM is in a range, limits inclusive:
+                      50     ;
+                      51     ;           0x0000 .. (wBoot_DpramTrimBeg) - 1
+                      52     ;
+                      53     ;---------------------------------------------------------------------------
+                      54     ;
+                      55     ;       DATA DECLARATIONS:
+                      56     ;
+                      57     
+A51 MACRO ASSEMBLER  KEYFOB_STARTUP                                                       11/20/2012 14:30:53 PAGE     2
+
+                      58     $nomod51 
+                      59     
+                      60     ;------------------------------------------------------------------------------
+                      61     ;  This file is part of the C51 Compiler package
+                      62     ;  Copyright (c) 1988-2005 Keil Elektronik GmbH and Keil Software, Inc.
+                      63     ;  Version 8.01
+                      64     ;------------------------------------------------------------------------------
+                      65     ;  STARTUP.A51:  This code is executed after processor reset.
+                      66     ;
+                      67     ;  To translate this file use A51 with the following invocation:
+                      68     ;
+                      69     ;     A51 STARTUP.A51
+                      70     ;
+                      71     ;  To link the modified STARTUP.OBJ file to your application use the following
+                      72     ;  Lx51 invocation:
+                      73     ;
+                      74     ;     Lx51 your object file list, STARTUP.OBJ  controls
+                      75     ;
+                      76     ;------------------------------------------------------------------------------
+                      77     ;
+                      78     ;  User-defined Power-On Initialization of Memory
+                      79     ;  SiLabs: Removed, we don't do any power on memory clearing.
+                      80     ;  See the description above.
+                      81     ;
+                      82     
+                      83     ; PDATASTART: PDATA memory start address <0x0-0xFFFF>
+                      84     ; The absolute start address of PDATA memory
+                      85     ; SiLabs: Set to XREG space, but it is up to the use to initialize this.
+  4000                86     PDATASTART      EQU     04000H
+                      87     
+                      88     ;------------------------------------------------------------------------------
+                      89     ;
+                      90     ; Memory Page for Using the Compact Model with 64 KByte XDATA RAM
+                      91     ; Compact Model Page Definition
+                      92     ;
+                      93     ; Define the XDATA page used for PDATA variables.
+                      94     ; PPAGE must conform with the PPAGE set in the linker invocation.
+                      95     ; MPech: Even if we are not using the compact mode, the P2 can be
+                      96     ; set to XREG page for faster access by default.
+                      97     
+                      98     ; Enable PDATA memory page initialization
+  0001                99     PPAGEENABLE     EQU     1       ; Set to 1 if pdata object are used.
+                     100     
+                     101     ; PPAGE number <0x0-0xFF>
+                     102     ; Uppermost 256-byte address of the page used for PDATA variables.
+  0040               103     PPAGE           EQU     HIGH(PDATASTART)
+                     104     
+                     105     ; FR address which supplies uppermost address byte <0x0-0xFF>
+                     106     ; Most 8051 variants use P2 as uppermost address byte. The P2 SFR address
+                     107     ; is 0xA0
+  00A0               108     PPAGE_SFR       DATA    0A0H    ; P2
+                     109     
+                     110     ;---------------------------------------------------------------------------
+                     111     ;
+                     112     ;       SYMBOLS:
+                     113     ;
+                     114     
+                     115     ; -- Standard SFR Symbols
+  00E0               116     ACC     DATA    0E0H
+  00F0               117     B       DATA    0F0H
+  0081               118     SP      DATA    81H
+  0082               119     DPL     DATA    82H
+  0083               120     DPH     DATA    83H
+                     121     
+                     122     ;---------------------------------------------------------------------------
+                     123     ;
+A51 MACRO ASSEMBLER  KEYFOB_STARTUP                                                       11/20/2012 14:30:53 PAGE     3
+
+                     124     ;       CODE:
+                     125     ;
+                     126     
+                     127                     NAME    ?C_STARTUP
+                     128     
+                     129     ?C_C51STARTUP   SEGMENT   CODE
+                     130     ?STACK          SEGMENT   IDATA
+                     131     
+                     132     ; -- Nominally the DS 1 is used for the STACK segment. However, if we want
+                     133     ; to reserve a desired space and make sure that we are not overflowing
+                     134     ; sizes we should allocated desired amount here.
+----                 135                     RSEG    ?STACK
+0000                 136                     DS      40        ; 40 bytes of stack reserved
+                     137     
+                     138     ; -- Start code and startup entry .. CPU reset entry
+                     139                     EXTRN CODE (?C_START)
+                     140                     PUBLIC  ?C_STARTUP
+                     141     
+                     142     ; -- Entry point of the code .. CPU starts here
+----                 143                     CSEG    AT      0
+0000 020000   F      144     ?C_STARTUP:     ljmp    STARTUP1  ; Long jump to startup code
+                     145     
+                     146     
+                     147     ; -- Startup code. The relocatable segment name must be ?C_C51STARTUP
+----                 148                     RSEG    ?C_C51STARTUP
+0000                 149     STARTUP1:
+                     150     IF PPAGEENABLE <> 0
+0000 75A040          151                     mov     PPAGE_SFR, #PPAGE  ; Get the PDATA ready
+                     152     ENDIF
+                     153     
+0003 758100   F      154                     mov     SP, #?STACK-1   ; Set stack pointer
+0006 020000   F      155                     ljmp    ?C_START        ; Go to C main()
+                     156     
+                     157                     END
+                             
+                             ;
+                             ;------------------------------------------------------------------------------
+                             ;
+A51 MACRO ASSEMBLER  KEYFOB_STARTUP                                                       11/20/2012 14:30:53 PAGE     4
+
+XREF SYMBOL TABLE LISTING
+---- ------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES / REFERENCES
+
+?C_C51STARTUP. . .  C SEG    0009H       REL=UNIT   129# 148
+?C_START . . . . .  C ADDR   -----       EXT   139# 155
+?C_STARTUP . . . .  C ADDR   0000H   A      127 140 144#
+?STACK . . . . . .  I SEG    0028H       REL=UNIT   130# 135 154
+ACC. . . . . . . .  D ADDR   00E0H   A      116#
+B. . . . . . . . .  D ADDR   00F0H   A      117#
+DPH. . . . . . . .  D ADDR   0083H   A      120#
+DPL. . . . . . . .  D ADDR   0082H   A      119#
+PDATASTART . . . .  N NUMB   4000H   A      86# 103
+PPAGE. . . . . . .  N NUMB   0040H   A      103# 151
+PPAGEENABLE. . . .  N NUMB   0001H   A      99# 150
+PPAGE_SFR. . . . .  D ADDR   00A0H   A      108# 151
+SP . . . . . . . .  D ADDR   0081H   A      118# 154
+STARTUP1 . . . . .  C ADDR   0000H   R   SEG=?C_C51STARTUP   144 149#
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
