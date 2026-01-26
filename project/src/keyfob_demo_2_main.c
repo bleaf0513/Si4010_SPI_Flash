@@ -101,19 +101,25 @@ void spi_flash_read(LWORD    addr, BYTE *buf, BYTE len)
  * READ FREQUENCY FROM FLASH @ 0x000000
  * Stored as LITTLE-ENDIAN DWORD
  *------------------------------------------------------------------------------*/
-LWORD spi_flash_read_freq(void)
+float spi_flash_read_freq(void)
 {
     BYTE  b[4];
-    LWORD f;
+   // LWORD f;
 
     spi_flash_read(0x000000UL, b, 4);
 
-    f  = ((LWORD)b[3] << 24);
-    f |= ((LWORD)b[2] << 16);
-    f |= ((LWORD)b[1] << 8);
-    f |=  (LWORD)b[0];
+   // f  = ((LWORD)b[3] << 24);
+  //  f |= ((LWORD)b[2] << 16);
+  //  f |= ((LWORD)b[1] << 8);
+  //  f |=  (LWORD)b[0];
+if(b[0]==0x74 && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
+{
+	return 316703093.0;
+}
+else if(b[0]==0x74 && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
+return 433979050.0;
 
-    return f;
+  //  return f;
 }
 
 /*------------------------------------------------------------------------------
@@ -162,11 +168,11 @@ void main(void)
     /* ---------- FLASH FREQUENCY READ ---------- */
     fFlashFreqHz = spi_flash_read_freq();
 
-    if (fFlashFreqHz < 300000000UL || fFlashFreqHz > 350000000UL)
-        fFlashFreqHz = 315000000UL;   /* Safe fallback */
+  //  if (fFlashFreqHz < 300000000UL || fFlashFreqHz > 350000000UL)
+  //      fFlashFreqHz = 315000000UL;   /* Safe fallback */
 //fFlashFreqHz;
-    fDesiredFreqOOK = (float)f_315_RkeFreqOOK_c;
-    fDesiredFreqFSK = (float)f_315_RkeFreqFSK_c;
+    fDesiredFreqOOK =fFlashFreqHz; //(float)f_315_RkeFreqOOK_c;
+    fDesiredFreqFSK =fFlashFreqHz;// (float)f_315_RkeFreqFSK_c;
 
     bFskDev = b_315_RkeFskDev_c;
 
