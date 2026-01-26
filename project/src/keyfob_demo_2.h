@@ -141,7 +141,7 @@ float spi_flash_read_freq(void)
   //  f |= ((LWORD)b[2] << 16);
   //  f |= ((LWORD)b[1] << 8);
   //  f |=  (LWORD)b[0];
-if(b[0]<=0x7F)// && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
+if(b[0]<=0xEA)// && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
 {
 	return 316703093.0;
 }
