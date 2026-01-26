@@ -37,6 +37,7 @@ void spi_delay(void)
         _nop_();
 }
 
+
 /*------------------------------------------------------------------------------
  * SPI WRITE BYTE (MSB first)
  *------------------------------------------------------------------------------*/
@@ -46,14 +47,16 @@ void spi_write_byte(BYTE _data)
 
     for (i = 0; i < 8; i++)
     {
+	 SPI_CLK = 0;
         SPI_MOSI = (_data & 0x80) ? 1 : 0;
         _data <<= 1;
-
+ spi_delay();
         SPI_CLK = 1;
         spi_delay();
-        SPI_CLK = 0;
-        spi_delay();
+
+        
     }
+	        SPI_CLK = 0;
 }
 
 /*------------------------------------------------------------------------------
@@ -66,34 +69,58 @@ BYTE spi_read_byte(void)
 
     for (i = 0; i < 8; i++)
     {
-        _data <<= 1;
-
-        SPI_CLK = 1;
-        spi_delay();
-        if (SPI_MISO)
-            _data |= 1;
         SPI_CLK = 0;
         spi_delay();
+
+        SPI_CLK = 1;
+        _data <<= 1;
+        if (SPI_MISO)
+            _data |= 1;
+
+        spi_delay();
     }
+
+    SPI_CLK = 0;
     return _data;
 }
+
 
 /*------------------------------------------------------------------------------
  * SPI FLASH READ (CMD = 0x03)
  *------------------------------------------------------------------------------*/
-void spi_flash_read(LWORD    addr, BYTE *buf, BYTE len)
+void spi_flash_read(LWORD addr, BYTE *buf, BYTE len)
 {
     BYTE i;
 
-    SPI_CS = 0;
+    SPI_CS = 1;
+    spi_delay();
 
-    spi_write_byte(0x03);                 /* READ command */
-    spi_write_byte((BYTE)(addr >> 16));   /* A23..A16 */
-    spi_write_byte((BYTE)(addr >> 8));    /* A15..A8  */
-    spi_write_byte((BYTE)(addr));         /* A7..A0   */
+    SPI_CS = 0;                 // assert CS
+    spi_delay();
+
+    spi_write_byte(0x03);       // READ
+    spi_write_byte(addr >> 16);
+    spi_write_byte(addr >> 8);
+    spi_write_byte(addr);
 
     for (i = 0; i < len; i++)
         buf[i] = spi_read_byte();
+
+    spi_delay();
+    SPI_CS = 1;                 // deassert CS
+}
+
+void spi_flash_read_id(BYTE *id)
+{
+    SPI_CS = 1;
+    spi_delay();
+    SPI_CS = 0;
+    spi_delay();
+
+    spi_write_byte(0x9F);   // JEDEC ID
+    id[0] = spi_read_byte();
+    id[1] = spi_read_byte();
+    id[2] = spi_read_byte();
 
     SPI_CS = 1;
 }
@@ -114,7 +141,7 @@ float spi_flash_read_freq(void)
   //  f |= ((LWORD)b[2] << 16);
   //  f |= ((LWORD)b[1] << 8);
   //  f |=  (LWORD)b[0];
-if(b[3]==0xFF)// && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
+if(b[0]<=0x7F)// && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
 {
 	return 316703093.0;
 }
@@ -125,6 +152,14 @@ return 433979050.0;
 
 
   //  return f;
+}
+void spi_init(void)
+{
+    SPI_CS   = 1;   // idle HIGH
+    SPI_CLK  = 0;   // idle LOW (SPI mode 0)
+    SPI_MOSI = 0;
+
+    spi_delay();
 }
 
 /*------------------------------------------------------------------------------
@@ -169,7 +204,7 @@ void main(void)
     RTC_CTRL |= M_RTC_ENA;
     ERTC = 1;
     EA = 1;
-
+spi_init();
     /* ---------- FLASH FREQUENCY READ ---------- */
     fFlashFreqHz = spi_flash_read_freq();
 
