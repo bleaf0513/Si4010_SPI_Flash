@@ -134,12 +134,14 @@ void main(void)
     vSys_SetMasterTime(0);
     vSys_BandGapLdo(1);
 
-    if ((PROT0_CTRL & M_NVM_BLOWN) > 1)
-    {
-        if (SYSGEN & M_POWER_1ST_TIME)
-            vSys_FirstPowerUp();
-    }
-MY_LED=0;
+        if ((PROT0_CTRL & M_NVM_BLOWN) > 1) //if part is burned to user or run mode.
+        {
+                // Check the first power up bit meaning keyfob is powered on by battery insertion
+                if ( 0 != (SYSGEN & M_POWER_1ST_TIME) )
+                {
+                        vSys_FirstPowerUp(); // Function will shutdown.
+                }
+        }
     vSys_LedIntensity(3);
     lLEDOnTime = 20;
     lPartID = lSys_GetProdId();
@@ -162,10 +164,9 @@ MY_LED=0;
 
     if (fFlashFreqHz < 300000000UL || fFlashFreqHz > 350000000UL)
         fFlashFreqHz = 315000000UL;   /* Safe fallback */
-  #define f_315_RkeFreqOOK_c		316660000.0	// for RKEdemo OOK
-  #define f_315_RkeFreqFSK_c		316703093.0	// for RKEdemo FSK, upper frequency
+//fFlashFreqHz;
     fDesiredFreqOOK = (float)f_315_RkeFreqOOK_c;
-    fDesiredFreqFSK = (float)f_315_RkeFreqFSK_c;//fFlashFreqHz;
+    fDesiredFreqFSK = (float)f_315_RkeFreqFSK_c;
 
     bFskDev = b_315_RkeFskDev_c;
 
@@ -173,8 +174,8 @@ MY_LED=0;
     rPaSetup.bLevel      = b_315_PaLevel_c;
     rPaSetup.wNominalCap = b_315_PaNominalCap_c;
     rPaSetup.bMaxDrv     = b_315_PaMaxDrv_c;
-    rPaSetup.fAlpha      = 0;
-    rPaSetup.fBeta       = 0;
+        rPaSetup.fAlpha      = 0.0;
+        rPaSetup.fBeta       = 0.0;
     vPa_Setup(&rPaSetup);
 
 #ifdef OOK
@@ -210,7 +211,10 @@ else
         bBatStatus = 1;
 }
     vDmdTs_RunForTemp(3);
-    while (!bDmdTs_GetSamplesTaken());
+while ( 0 == bDmdTs_GetSamplesTaken() )
+{
+        //wait
+}
 
     /* ---------- MAIN LOOP ---------- */
     while (1)
@@ -226,10 +230,21 @@ else
         }
         else if ((lSys_GetMasterTime() >> 5) > bMaxWaitForPush_c)
         {
-            EA = 0;
-            vSys_Shutdown();
-        }
+	        if ((PROT0_CTRL & M_NVM_BLOWN) > 1) //if part is burned to user or run mode.
+  		{
+                        //Disable all interrupts
+                        EA = 0;
+#ifdef CRYSTAL
+                        // Disable XO
+			bXO_CTRL = 0 ; 		
+                        // Wait 20us for XO to stop
+                        vSys_16BitDecLoop( 20 );
+#endif
+                        // Shutdown
+                        vSys_Shutdown();      	
+		}
     }
+  }
 }
 
 /*------------------------------------------------------------------------------
