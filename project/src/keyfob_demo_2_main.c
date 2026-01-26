@@ -173,8 +173,10 @@ while(1)
 
 // Buttons analyzation 
         vButtonCheck();
+		MY_LED=1;
         if (bButtonState)
         {
+		MY_LED=0;
                 // Packet transmit repeat counter
 	        bRepeatCount = bRepeatCount_c;   
                 // Transmit. 
@@ -240,13 +242,13 @@ void vRepeatTxLoop (void)
 	        if ((PROT0_CTRL & M_NVM_BLOWN) > 1) 
   	        {
     	                //turn LED on
-	 	        MY_LED = 0; 
+	 	       // MY_LED = 0; 
                 }	       
                 while ( (lSys_GetMasterTime() - lTimestamp) < lLEDOnTime )
                 {
                         //wait for LED ON time to expire
                 }
-	        MY_LED = 1;  //turn LED off
+	      //  MY_LED = 1;  //turn LED off
 	        //Transmit packet
                 vStl_SingleTxLoop(pbFrameHead,bFrameSize);
 	        // Wait repeat interval. 

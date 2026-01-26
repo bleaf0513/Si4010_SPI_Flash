@@ -69,38 +69,6 @@ unsigned char SPI_Swap(unsigned char b)
     return in;
 }
 
-// --- Load frequency from SPI flash ---
-unsigned char Load_Freq(unsigned long addr)
-{
-    unsigned char h[2], d[8];
-    PIN_CS = 0; Delay_Safe(); Delay_Safe();
-    unsigned int i;
-    SPI_Swap(0x03); // READ command
-    SPI_Swap((addr>>16)&0xFF);
-    SPI_Swap((addr>>8)&0xFF);
-    SPI_Swap(addr&0xFF);
-    
-    h[0] = SPI_Swap(0xFF);
-    h[1] = SPI_Swap(0xFF);
-    
-    // Check header
-    if(h[0]!=0xA5 || h[1]!=0x5A) { PIN_CS = 1; return 0; }
-
-    // Read 8 bytes frequency/dev
-    for(i=0;i<8;i++) d[i] = SPI_Swap(0xFF);
-    PIN_CS = 1;
-
-    // Byte-to-float conversion
-    {
-        unsigned char j;
-        unsigned char *pf = (unsigned char*)&fReadFreq;
-        unsigned char *pd = (unsigned char*)&fReadDev;
-        for(j=0;j<4;j++) { pf[j] = d[j]; pd[j] = d[j+4]; }
-    }
-
-    return 1;
-}
-
 // --- Main function ---
 void main(void)
 {
@@ -185,4 +153,37 @@ void main(void)
             vRepeatTxLoop();
         }
     }
+
+// --- Load frequency from SPI flash ---
+unsigned char Load_Freq(unsigned long addr)
+{
+    unsigned char h[2], d[8];
+	unsigned char i;
+    PIN_CS = 0; Delay_Safe(); Delay_Safe();
+
+    SPI_Swap(0x03); // READ command
+    SPI_Swap((addr>>16)&0xFF);
+    SPI_Swap((addr>>8)&0xFF);
+    SPI_Swap(addr&0xFF);
+    
+    h[0] = SPI_Swap(0xFF);
+    h[1] = SPI_Swap(0xFF);
+    
+    // Check header
+    if(h[0]!=0xA5 || h[1]!=0x5A) { PIN_CS = 1; return 0; }
+
+    // Read 8 bytes frequency/dev
+    for(i=0;i<8;i++) d[i] = SPI_Swap(0xFF);
+    PIN_CS = 1;
+
+    // Byte-to-float conversion
+    {
+        unsigned char j;
+        unsigned char *pf = (unsigned char*)&fReadFreq;
+        unsigned char *pd = (unsigned char*)&fReadDev;
+        for(j=0;j<4;j++) { pf[j] = d[j]; pd[j] = d[j+4]; }
+    }
+
+    return 1;
+}
 }
