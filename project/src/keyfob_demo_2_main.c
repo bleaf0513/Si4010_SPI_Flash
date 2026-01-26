@@ -6,6 +6,7 @@
  *------------------------------------------------------------------------------*/
 
 #include <intrins.h>
+#include "stdlib.h"
 #include "si4010.h"
 #include "si4010_api_rom.h"
 #include "keyfob_demo_2.h"
@@ -136,7 +137,7 @@ void main(void)
         if (SYSGEN & M_POWER_1ST_TIME)
             vSys_FirstPowerUp();
     }
-
+MY_LED=0;
     vSys_LedIntensity(3);
     lLEDOnTime = 20;
     lPartID = lSys_GetProdId();
@@ -159,9 +160,11 @@ void main(void)
 
     if (fFlashFreqHz < 300000000UL || fFlashFreqHz > 350000000UL)
         fFlashFreqHz = 315000000UL;   /* Safe fallback */
+  #define f_315_RkeFreqOOK_c		316660000.0	// for RKEdemo OOK
+  #define f_315_RkeFreqFSK_c		316703093.0	// for RKEdemo FSK, upper frequency
+    fDesiredFreqOOK = (float)f_315_RkeFreqOOK_c;
+    fDesiredFreqFSK = (float)f_315_RkeFreqFSK_c;//fFlashFreqHz;
 
-    fDesiredFreqOOK = (float)fFlashFreqHz;
-    fDesiredFreqFSK = (float)fFlashFreqHz;
     bFskDev = b_315_RkeFskDev_c;
 
     /* PA setup */
@@ -179,7 +182,7 @@ void main(void)
     bPreamble = bPreambleManch_c;
 #else
     rOdsSetup.bModulationType = bModFSK_c;
-    vStl_EncodeSetup(bEnc_NoneNrz_c, 0);
+vStl_EncodeSetup( bEnc_NoneNrz_c, NULL );
     fDesiredFreq = fDesiredFreqFSK;
     bPreamble = bPreambleNrz_c;
 #endif
@@ -196,8 +199,14 @@ void main(void)
     vFCast_Setup();
 
     iBatteryMv = iMVdd_Measure(bBatteryWait_c);
-    bBatStatus = (iBatteryMv >= iLowBatMv_c);
-
+if (iBatteryMv < iLowBatMv_c) 
+{
+        bBatStatus = 0;
+}
+else
+{
+        bBatStatus = 1;
+}
     vDmdTs_RunForTemp(3);
     while (!bDmdTs_GetSamplesTaken());
 
@@ -224,14 +233,66 @@ void main(void)
 /*------------------------------------------------------------------------------
  * RTC INTERRUPT
  *------------------------------------------------------------------------------*/
+void vRepeatTxLoop (void)
+
+{ 
+
+        vFCast_Tune( fDesiredFreq );
+        if (rOdsSetup.bModulationType == bModFSK_c)
+        {
+                vFCast_FskAdj( bFskDev ); 
+        }
+        // Wait until there is a temperature sample available
+        while ( 0 == bDmdTs_GetSamplesTaken() )
+        {
+                //wait
+        }
+        //  Tune the PA with the temperature as an argument 
+        vPa_Tune( iDmdTs_GetLatestTemp());
+	vPacketAssemble();
+	//Convert whole frame before transmission 
+	vConvertPacket(rOdsSetup.bModulationType);
+        vStl_PreLoop();
+        do
+        {
+                // get current timestamp  
+                lTimestamp = lSys_GetMasterTime();
+                //if part is burned to user or run mode
+	        if ((PROT0_CTRL & M_NVM_BLOWN) > 1) 
+  	        {
+    	                //turn LED on
+	 	       // MY_LED = 0; 
+                }	       
+                while ( (lSys_GetMasterTime() - lTimestamp) < lLEDOnTime )
+                {
+                        //wait for LED ON time to expire
+                }
+	      //  MY_LED = 1;  //turn LED off
+	        //Transmit packet
+                vStl_SingleTxLoop(pbFrameHead,bFrameSize);
+	        // Wait repeat interval. 
+                while ( (lSys_GetMasterTime() - lTimestamp) < wRepeatInterval_c );
+
+        }while(--bRepeatCount);
+
+        vStl_PostLoop();
+
+         // Clear time value for next button push detecting. 
+        vSys_SetMasterTime(0);
+
+        return;
+} 
+
 void isr_rtc(void) interrupt INTERRUPT_RTC using 1
 {
     RTC_CTRL &= ~M_RTC_INT;
     vSys_IncMasterTime(5);
     bIsr_DebounceCount++;
-
-    if ((bIsr_DebounceCount % bDebounceInterval_c) == 0)
-        vBsr_Service();
+  if ((bIsr_DebounceCount % bDebounceInterval_c) == 0)
+  {
+    vBsr_Service();
+  }
+  return;
 }
 
 /*------------------------------------------------------------------------------
@@ -258,4 +319,90 @@ void vButtonCheck(void)
     }
 
     ERTC = 1;
+  return;
 }
+void vPacketAssemble (void)
+{ 
+  BYTE i;
+
+  pbFrameHead = abFrame ;
+  bFrameSize = bFrameSize_c;
+
+
+  for (i=0;i<bPreambleSize_c;i++)
+  {
+	abFrame[i] = bPreamble;
+  }
+//clear button bits in bStatus
+        bStatus &= ~M_ButtonBits_c;
+//copy button bits from bButtonState to bStatus
+        bStatus |= bButtonState & M_ButtonBits_c;
+
+	abFrame[bFrameSize_c - 11] = bSync1_c;
+	abFrame[bFrameSize_c - 10] = bSync2_c;
+	abFrame[bFrameSize_c - 9] = ((BYTE *)&lPartID)[0];
+	abFrame[bFrameSize_c - 8] = ((BYTE *)&lPartID)[1];
+	abFrame[bFrameSize_c - 7] = ((BYTE *)&lPartID)[2];
+	abFrame[bFrameSize_c - 6] = ((BYTE *)&lPartID)[3];
+	abFrame[bFrameSize_c - 5] = bStatus;
+	abFrame[bFrameSize_c - 4] = ((BYTE *)&iBatteryMv)[0];
+	abFrame[bFrameSize_c - 3] = ((BYTE *)&iBatteryMv)[1];
+	abFrame[bFrameSize_c - 2] = 0;	//CRC
+	abFrame[bFrameSize_c - 1] = 0;	//CRC
+
+	vCalculateCrc();
+
+
+  return;
+}
+//--------------------------------------------------------------
+//Calculate CRC and write in the frame buffer
+//Bit pattern used (1)1000 0000 0000 0101, X16+X15+X2+1
+void vCalculateCrc(void)
+{
+        BYTE i,j;
+        WORD wCrc;
+        wCrc = 0xffff;
+        for(j = bPayloadStartIndex_c;j<bPayloadStartIndex_c + bPayloadSize_c;j++)
+        {
+                wCrc = wCrc ^ ((WORD)abFrame[j]<<8);
+
+                for (i = 8; i != 0; i--)
+                {
+                        if (wCrc & 0x8000)
+                        {
+	                        wCrc = (wCrc << 1) ^ 0x8005;
+                        }
+                        else
+	                {
+                                wCrc <<= 1;
+                        }
+                }
+        }
+  //-----------------------------------------------------------------
+  //Write CRC in frame
+  abFrame[bFrameSize_c - 2] = ((BYTE*)&wCrc)[0];
+  abFrame[bFrameSize_c - 1] = ((BYTE*)&wCrc)[1];
+  return;
+}
+
+  //-------------------------------------------------------------------
+  //MSB first to LSB first conversion, and inversion if FSK used
+void vConvertPacket (BYTE bModType)
+{
+  BYTE i,low,high;
+
+  if (bModType)
+  {
+    bModType = 0xff;
+  }
+  for (i=0;i<(sizeof abFrame);i++)
+  {
+	low = abConvTable[(abFrame[i] & 0xf0) >> 4] & 0x0f;
+	high = abConvTable[abFrame[i] & 0x0f] & 0xf0;
+	abFrame[i] = (high | low) ^ bModType;
+  }
+  return;
+}
+
+

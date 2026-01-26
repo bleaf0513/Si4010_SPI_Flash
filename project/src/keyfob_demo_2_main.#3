@@ -100,10 +100,10 @@ void spi_flash_read(LWORD    addr, BYTE *buf, BYTE len)
  * READ FREQUENCY FROM FLASH @ 0x000000
  * Stored as LITTLE-ENDIAN DWORD
  *------------------------------------------------------------------------------*/
-DWORD spi_flash_read_freq(void)
+LWORD spi_flash_read_freq(void)
 {
     BYTE  b[4];
-    DWORD f;
+    LWORD f;
 
     spi_flash_read(0x000000UL, b, 4);
 
@@ -120,7 +120,7 @@ DWORD spi_flash_read_freq(void)
  *------------------------------------------------------------------------------*/
 void main(void)
 {
-    DWORD fFlashFreqHz;
+    LWORD fFlashFreqHz;
 
     /* Basic system init */
     PDMD = 1;

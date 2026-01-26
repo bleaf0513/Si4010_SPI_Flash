@@ -107,10 +107,10 @@ LWORD spi_flash_read_freq(void)
 
     spi_flash_read(0x000000UL, b, 4);
 
-    f  = ((DWORD)b[3] << 24);
-    f |= ((DWORD)b[2] << 16);
-    f |= ((DWORD)b[1] << 8);
-    f |=  (DWORD)b[0];
+    f  = ((LWORD)b[3] << 24);
+    f |= ((LWORD)b[2] << 16);
+    f |= ((LWORD)b[1] << 8);
+    f |=  (LWORD)b[0];
 
     return f;
 }

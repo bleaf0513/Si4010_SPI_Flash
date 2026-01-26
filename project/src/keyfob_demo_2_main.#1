@@ -179,7 +179,7 @@ void main(void)
     bPreamble = bPreambleManch_c;
 #else
     rOdsSetup.bModulationType = bModFSK_c;
-    vStl_EncodeSetup(bEnc_NoneNrz_c, NULL);
+    vStl_EncodeSetup(bEnc_NoneNrz_c, 0);
     fDesiredFreq = fDesiredFreqFSK;
     bPreamble = bPreambleNrz_c;
 #endif
