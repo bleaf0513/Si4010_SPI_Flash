@@ -74,7 +74,7 @@ unsigned char Load_Freq(unsigned long addr)
 {
     unsigned char h[2], d[8];
     PIN_CS = 0; Delay_Safe(); Delay_Safe();
-    
+    unsigned int i;
     SPI_Swap(0x03); // READ command
     SPI_Swap((addr>>16)&0xFF);
     SPI_Swap((addr>>8)&0xFF);

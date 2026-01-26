@@ -1,4 +1,4 @@
-C51 COMPILER V9.59.0.0   SI4010_LINK                                                       01/24/2026 04:15:04 PAGE 1   
+C51 COMPILER V9.59.0.0   SI4010_LINK                                                       01/26/2026 20:10:58 PAGE 1   
 
 
 C51 COMPILER V9.59.0.0, COMPILATION OF MODULE SI4010_LINK
@@ -62,7 +62,7 @@ line level    source
   52          BYTE idata abSi4010_IdataApiReserve[bLink_IdataApiLen_c]
   53                                  _at_ bLink_IdataApiBeg_c;
   54          
-C51 COMPILER V9.59.0.0   SI4010_LINK                                                       01/24/2026 04:15:04 PAGE 2   
+C51 COMPILER V9.59.0.0   SI4010_LINK                                                       01/26/2026 20:10:58 PAGE 2   
 
   55          /* -- Reserved XDATA space */
   56          
@@ -105,12 +105,12 @@ line level    source
   93           *------------------------------------------------------------------------------
   94           */
   95          
-C51 COMPILER V9.59.0.0   SI4010_LINK                                                       01/24/2026 04:15:04 PAGE 3   
+C51 COMPILER V9.59.0.0   SI4010_LINK                                                       01/26/2026 20:10:58 PAGE 3   
 
 ASSEMBLY LISTING OF GENERATED OBJECT CODE
 
 
-C51 COMPILER V9.59.0.0   SI4010_LINK                                                       01/24/2026 04:15:04 PAGE 4   
+C51 COMPILER V9.59.0.0   SI4010_LINK                                                       01/26/2026 20:10:58 PAGE 4   
 
 NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
 ====                                    =====   ======  ====    ======  ====

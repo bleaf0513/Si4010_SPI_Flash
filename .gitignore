@@ -4,3 +4,6 @@ project/src/*.OBJ
 project/src/*.#1
 project/src/*.#2
 project/src/*.#3
+project/src/*.LST
+project/src/*.OBJ
+

@@ -1,3 +1,36 @@
+/*------------------------------------------------------------------------------
+ *                          Silicon Laboratories, Inc.
+ *                           http://www.silabs.com
+ *                               Copyright 2010
+ *------------------------------------------------------------------------------
+ *
+ *    FILE:       keyfob_demo_2_main.c
+ *    TARGET:     Si4010 RevC
+ *    TOOLCHAIN:  Keil
+ *    DATE:       Nov 10, 2012,
+ *    RELEASE:    1.0 (Tamas Nagy), ROM version 02.00
+ *
+ *------------------------------------------------------------------------------
+ *
+ *    DESCRIPTION:
+ *      This file contains the main function for the Keil toolchain
+ *      sample keyfob_demo_2 project.
+ *
+ *      BL51 linker directives for building this application:
+ *
+ *      BL51: PL(68) PW(78) IXREF RS(256)
+ *            CODE (0x0-0x08FF)
+ *            DATA (0x40)
+ *            IDATA (0x70)
+ *            XDATA (0x0900-0x107F)
+ *            STACK (?STACK(0x90))
+ *
+ *------------------------------------------------------------------------------
+ *
+ *    INCLUDES:
+ */
+
+#include <intrins.h>  // must be included at top
 #include "stdlib.h"
 #include "si4010.h"
 #include "si4010_api_rom.h"
