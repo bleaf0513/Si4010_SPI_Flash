@@ -1,138 +1,175 @@
 /*------------------------------------------------------------------------------
- *                          Silicon Laboratories, Inc.
- *                           http://www.silabs.com
- *                               Copyright 2010
- *------------------------------------------------------------------------------
- *
- *    FILE:       keyfob_demo_2_main.c
- *    TARGET:     Si4010 RevC
- *    TOOLCHAIN:  Keil
- *    DATE:       Nov 10, 2012,
- *    RELEASE:    1.0 (Tamas Nagy), ROM version 02.00
- *
- *------------------------------------------------------------------------------
- *
- *    DESCRIPTION:
- *      This file contains the main function for the Keil toolchain
- *      sample keyfob_demo_2 project.
- *
- *      BL51 linker directives for building this application:
- *
- *      BL51: PL(68) PW(78) IXREF RS(256)
- *            CODE (0x0-0x08FF)
- *            DATA (0x40)
- *            IDATA (0x70)
- *            XDATA (0x0900-0x107F)
- *            STACK (?STACK(0x90))
- *
- *------------------------------------------------------------------------------
- *
- *    INCLUDES:
- */
+ * Silicon Laboratories, Inc.
+ * Si4010 RevC
+ * Toolchain: Keil C51
+ * Bit-banged SPI Flash Read (CMD 0x03)
+ *------------------------------------------------------------------------------*/
 
-#include <intrins.h>  // must be included at top
-#include "stdlib.h"
+#include <intrins.h>
 #include "si4010.h"
 #include "si4010_api_rom.h"
 #include "keyfob_demo_2.h"
 
-sbit MY_LED = P0^4;  // LED
+/*------------------------------------------------------------------------------
+ * TYPE DEFINITIONS (Keil-safe)
+ *------------------------------------------------------------------------------*/
 
-// --- SPI pins ---
-sbit PIN_CS  = P1^1; // CS
-sbit PIN_CLK = P0^6; // CLK
-sbit PIN_D0  = P0^7; // MOSI
-sbit PIN_D1  = P1^0; // MISO
 
-float fReadFreq; 
-float fReadDev;
+/*------------------------------------------------------------------------------
+ * GPIO DEFINITIONS
+ *------------------------------------------------------------------------------*/
+sbit MY_LED    = P0^4;
 
-// --- SPI helpers ---
-void Delay_Safe(void) {
-    unsigned char i;
-    for(i=0;i<100;i++) _nop_(); // Keil intrinsic nop
-}
+/* SPI FLASH (bit-banged) */
+sbit SPI_CS    = P1^1;   /* GPIO9  */
+sbit SPI_CLK   = P0^6;   /* GPIO6  */
+sbit SPI_MOSI  = P1^0;   /* GPIO8  */
+sbit SPI_MISO  = P0^7;   /* GPIO7  */
 
-unsigned char SPI_Swap(unsigned char b)
+/*------------------------------------------------------------------------------
+ * SPI LOW-LEVEL SUPPORT
+ *------------------------------------------------------------------------------*/
+void spi_delay(void)
 {
-    unsigned char i, in = 0;
-    for(i=0;i<8;i++)
-    {
-        if(b & 0x80) PIN_D0 = 1; else PIN_D0 = 0;
-        Delay_Safe();
-        PIN_CLK = 1; Delay_Safe();
-        in <<= 1;
-        if(PIN_D1) in |= 1;
-        PIN_CLK = 0; Delay_Safe();
-        b <<= 1;
-    }
-    return in;
+    _nop_();
+    _nop_();
 }
 
-// --- Load frequency from SPI flash ---
-unsigned char Load_Freq(unsigned long addr)
+/*------------------------------------------------------------------------------
+ * SPI WRITE BYTE (MSB first)
+ *------------------------------------------------------------------------------*/
+void spi_write_byte(BYTE _data)
 {
-    unsigned char h[2], d[8];
-    PIN_CS = 0; Delay_Safe(); Delay_Safe();
-    unsigned int i;
-    SPI_Swap(0x03); // READ command
-    SPI_Swap((addr>>16)&0xFF);
-    SPI_Swap((addr>>8)&0xFF);
-    SPI_Swap(addr&0xFF);
-    
-    h[0] = SPI_Swap(0xFF);
-    h[1] = SPI_Swap(0xFF);
-    
-    // Check header
-    if(h[0]!=0xA5 || h[1]!=0x5A) { PIN_CS = 1; return 0; }
+    BYTE i;
 
-    // Read 8 bytes frequency/dev
-    for(i=0;i<8;i++) d[i] = SPI_Swap(0xFF);
-    PIN_CS = 1;
-
-    // Byte-to-float conversion
+    for (i = 0; i < 8; i++)
     {
-        unsigned char j;
-        unsigned char *pf = (unsigned char*)&fReadFreq;
-        unsigned char *pd = (unsigned char*)&fReadDev;
-        for(j=0;j<4;j++) { pf[j] = d[j]; pd[j] = d[j+4]; }
-    }
+        SPI_MOSI = (_data & 0x80) ? 1 : 0;
+        _data <<= 1;
 
-    return 1;
+        SPI_CLK = 1;
+        spi_delay();
+        SPI_CLK = 0;
+        spi_delay();
+    }
 }
 
-// --- Main function ---
+/*------------------------------------------------------------------------------
+ * SPI READ BYTE (MSB first)
+ *------------------------------------------------------------------------------*/
+BYTE spi_read_byte(void)
+{
+    BYTE i;
+    BYTE _data = 0;
+
+    for (i = 0; i < 8; i++)
+    {
+        _data <<= 1;
+
+        SPI_CLK = 1;
+        spi_delay();
+        if (SPI_MISO)
+            _data |= 1;
+        SPI_CLK = 0;
+        spi_delay();
+    }
+    return _data;
+}
+
+/*------------------------------------------------------------------------------
+ * SPI FLASH READ (CMD = 0x03)
+ *------------------------------------------------------------------------------*/
+void spi_flash_read(LWORD    addr, BYTE *buf, BYTE len)
+{
+    BYTE i;
+
+    SPI_CS = 0;
+
+    spi_write_byte(0x03);                 /* READ command */
+    spi_write_byte((BYTE)(addr >> 16));   /* A23..A16 */
+    spi_write_byte((BYTE)(addr >> 8));    /* A15..A8  */
+    spi_write_byte((BYTE)(addr));         /* A7..A0   */
+
+    for (i = 0; i < len; i++)
+        buf[i] = spi_read_byte();
+
+    SPI_CS = 1;
+}
+
+/*------------------------------------------------------------------------------
+ * READ FREQUENCY FROM FLASH @ 0x000000
+ * Stored as LITTLE-ENDIAN DWORD
+ *------------------------------------------------------------------------------*/
+DWORD spi_flash_read_freq(void)
+{
+    BYTE  b[4];
+    DWORD f;
+
+    spi_flash_read(0x000000UL, b, 4);
+
+    f  = ((DWORD)b[3] << 24);
+    f |= ((DWORD)b[2] << 16);
+    f |= ((DWORD)b[1] << 8);
+    f |=  (DWORD)b[0];
+
+    return f;
+}
+
+/*------------------------------------------------------------------------------
+ * MAIN
+ *------------------------------------------------------------------------------*/
 void main(void)
 {
+    DWORD fFlashFreqHz;
+
+    /* Basic system init */
     PDMD = 1;
     PORT_CTRL &= ~(M_PORT_MATRIX | M_PORT_ROFF | M_PORT_STROBE);
-    vSys_Setup(10); 
-    vSys_BandGapLdo(1); 
-    vSys_LedIntensity(3);
+    GPIO_LED = 0;
 
+    vSys_Setup(10);
+    vSys_SetMasterTime(0);
+    vSys_BandGapLdo(1);
+
+    if ((PROT0_CTRL & M_NVM_BLOWN) > 1)
+    {
+        if (SYSGEN & M_POWER_1ST_TIME)
+            vSys_FirstPowerUp();
+    }
+
+    vSys_LedIntensity(3);
+    lLEDOnTime = 20;
     lPartID = lSys_GetProdId();
     bIsr_DebounceCount = 0;
 
-    // --- Button setup ---
+    /* Button setup */
     rBsrSetup.bButtonMask = bButtonMask_c;
     rBsrSetup.pbPtsReserveHead = abBsrPtsPlaceHolder;
     rBsrSetup.bPtsSize = 3;
     rBsrSetup.bPushQualThresh = 3;
     vBsr_Setup(&rBsrSetup);
 
-    RTC_CTRL = (0x07 << B_RTC_DIV) | M_RTC_CLR | M_RTC_ENA;
-    ERTC = 1; EA = 1;
+    RTC_CTRL = (0x07 << B_RTC_DIV) | M_RTC_CLR;
+    RTC_CTRL |= M_RTC_ENA;
+    ERTC = 1;
+    EA = 1;
 
-    // --- PA & ODS setup for 315 MHz ---
-    fDesiredFreqOOK = f_315_RkeFreqOOK_c;
-    fDesiredFreqFSK = f_315_RkeFreqFSK_c;
+    /* ---------- FLASH FREQUENCY READ ---------- */
+    fFlashFreqHz = spi_flash_read_freq();
+
+    if (fFlashFreqHz < 300000000UL || fFlashFreqHz > 350000000UL)
+        fFlashFreqHz = 315000000UL;   /* Safe fallback */
+
+    fDesiredFreqOOK = (float)fFlashFreqHz;
+    fDesiredFreqFSK = (float)fFlashFreqHz;
     bFskDev = b_315_RkeFskDev_c;
 
-    rPaSetup.bLevel = b_315_PaLevel_c;
+    /* PA setup */
+    rPaSetup.bLevel      = b_315_PaLevel_c;
     rPaSetup.wNominalCap = b_315_PaNominalCap_c;
-    rPaSetup.bMaxDrv = b_315_PaMaxDrv_c;
-    rPaSetup.fAlpha = 0.0;
-    rPaSetup.fBeta = 0.0;
+    rPaSetup.bMaxDrv     = b_315_PaMaxDrv_c;
+    rPaSetup.fAlpha      = 0;
+    rPaSetup.fBeta       = 0;
     vPa_Setup(&rPaSetup);
 
 #ifdef OOK
@@ -159,30 +196,66 @@ void main(void)
     vFCast_Setup();
 
     iBatteryMv = iMVdd_Measure(bBatteryWait_c);
-    bBatStatus = (iBatteryMv >= iLowBatMv_c) ? 1 : 0;
+    bBatStatus = (iBatteryMv >= iLowBatMv_c);
 
     vDmdTs_RunForTemp(3);
-    while(bDmdTs_GetSamplesTaken()==0);
+    while (!bDmdTs_GetSamplesTaken());
 
-    bStatus = 0; bRepeatCount = 0; bPrevBtn = 0;
-
-    // --- Main loop ---
-    while(1)
+    /* ---------- MAIN LOOP ---------- */
+    while (1)
     {
         vButtonCheck();
-        if(bButtonState)
-        {
-            // --- Read frequency from SPI ---
-            if(!Load_Freq(0x001000))
-            {
-                MY_LED = 0; // Error blink or signal
-                continue;
-            }
-            fDesiredFreq = fReadFreq;
-            bFskDev = (unsigned char)fReadDev;
+        MY_LED = 1;
 
+        if (bButtonState)
+        {
+            MY_LED = 0;
             bRepeatCount = bRepeatCount_c;
             vRepeatTxLoop();
         }
+        else if ((lSys_GetMasterTime() >> 5) > bMaxWaitForPush_c)
+        {
+            EA = 0;
+            vSys_Shutdown();
+        }
     }
+}
+
+/*------------------------------------------------------------------------------
+ * RTC INTERRUPT
+ *------------------------------------------------------------------------------*/
+void isr_rtc(void) interrupt INTERRUPT_RTC using 1
+{
+    RTC_CTRL &= ~M_RTC_INT;
+    vSys_IncMasterTime(5);
+    bIsr_DebounceCount++;
+
+    if ((bIsr_DebounceCount % bDebounceInterval_c) == 0)
+        vBsr_Service();
+}
+
+/*------------------------------------------------------------------------------
+ * BUTTON CHECK
+ *------------------------------------------------------------------------------*/
+void vButtonCheck(void)
+{
+    ERTC = 0;
+    bButtonState = 0;
+
+    if (bBsr_GetPtsItemCnt())
+    {
+        bButtonState = wBsr_Pop() & 0xFF;
+
+        if (bPrevBtn)
+        {
+            bPrevBtn = bButtonState;
+            bButtonState = 0;
+        }
+        else
+        {
+            bPrevBtn = bButtonState;
+        }
+    }
+
+    ERTC = 1;
 }
