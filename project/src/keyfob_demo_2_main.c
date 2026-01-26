@@ -126,6 +126,8 @@ void main(void)
     /* Basic system init */
     PDMD = 1;
     PORT_CTRL &= ~(M_PORT_MATRIX | M_PORT_ROFF | M_PORT_STROBE);
+        PORT_CTRL |=  M_PORT_STROBE;
+        PORT_CTRL &= (~M_PORT_STROBE);
     GPIO_LED = 0;
 
     vSys_Setup(10);
