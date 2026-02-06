@@ -1,471 +1,165 @@
+#ifndef _RKE_DEMO_H
+#define _RKE_DEMO_H
 /*------------------------------------------------------------------------------
- * Silicon Laboratories, Inc.
- * Si4010 RevC
- * Toolchain: Keil C51
- * Bit-banged SPI Flash Read (CMD 0x03)
- *------------------------------------------------------------------------------*/
-
-#include <intrins.h>
-#include "stdlib.h"
-#include "si4010.h"
-#include "si4010_api_rom.h"
-#include "keyfob_demo_2.h"
-
-/*------------------------------------------------------------------------------
- * TYPE DEFINITIONS (Keil-safe)
- *------------------------------------------------------------------------------*/
-
-
-/*------------------------------------------------------------------------------
- * GPIO DEFINITIONS
- *------------------------------------------------------------------------------*/
-sbit MY_LED    = P0^4;
-
-/* SPI FLASH (bit-banged) */
-sbit SPI_CS    = P1^1;   /* GPIO9  */
-sbit SPI_CLK   = P0^6;   /* GPIO6  */
-sbit SPI_MOSI  = P1^0;   /* GPIO8  */
-sbit SPI_MISO  = P0^7;   /* GPIO7  */
-
-/*------------------------------------------------------------------------------
- * SPI LOW-LEVEL SUPPORT
- *------------------------------------------------------------------------------*/
-void spi_delay(void)
-{
-    BYTE i;
-    for (i = 0; i < 20; i++)
-        _nop_();
-}
-
-
-/*------------------------------------------------------------------------------
- * SPI WRITE BYTE (MSB first)
- *------------------------------------------------------------------------------*/
-void spi_write_byte(BYTE _data)
-{
-    BYTE i;
-
-    for (i = 0; i < 8; i++)
-    {
-	 SPI_CLK = 0;
-        SPI_MOSI = (_data & 0x80) ? 1 : 0;
-        _data <<= 1;
- spi_delay();
-        SPI_CLK = 1;
-        spi_delay();
-
-        
-    }
-	        SPI_CLK = 0;
-}
-
-/*------------------------------------------------------------------------------
- * SPI READ BYTE (MSB first)
- *------------------------------------------------------------------------------*/
-BYTE spi_read_byte(void)
-{
-    BYTE i;
-    BYTE _data = 0;
-
-    for (i = 0; i < 8; i++)
-    {
-        SPI_CLK = 0;
-        spi_delay();
-
-        SPI_CLK = 1;
-        _data <<= 1;
-        if (SPI_MISO)
-            _data |= 1;
-
-        spi_delay();
-    }
-
-    SPI_CLK = 0;
-    return _data;
-}
-
-
-/*------------------------------------------------------------------------------
- * SPI FLASH READ (CMD = 0x03)
- *------------------------------------------------------------------------------*/
-void spi_flash_read(LWORD addr, BYTE *buf, BYTE len)
-{
-    BYTE i;
-
-    SPI_CS = 1;
-    spi_delay();
-
-    SPI_CS = 0;                 // assert CS
-    spi_delay();
-
-    spi_write_byte(0x03);       // READ
-    spi_write_byte(addr >> 16);
-    spi_write_byte(addr >> 8);
-    spi_write_byte(addr);
-
-    for (i = 0; i < len; i++)
-        buf[i] = spi_read_byte();
-
-    spi_delay();
-    SPI_CS = 1;                 // deassert CS
-}
-
-void spi_flash_read_id(BYTE *id)
-{
-    SPI_CS = 1;
-    spi_delay();
-    SPI_CS = 0;
-    spi_delay();
-
-    spi_write_byte(0x9F);   // JEDEC ID
-    id[0] = spi_read_byte();
-    id[1] = spi_read_byte();
-    id[2] = spi_read_byte();
-
-    SPI_CS = 1;
-}
-
-/*------------------------------------------------------------------------------
- * READ FREQUENCY FROM FLASH @ 0x000000
- * Stored as LITTLE-ENDIAN DWORD
- *------------------------------------------------------------------------------*/
-float spi_flash_read_freq(void)
-{
-    BYTE  b[4];
-   // LWORD f;
-	b[0]=0x00;
-
-    spi_flash_read(0x000000UL, b, 4);
-
-   // f  = ((LWORD)b[3] << 24);
-  //  f |= ((LWORD)b[2] << 16);
-  //  f |= ((LWORD)b[1] << 8);
-  //  f |=  (LWORD)b[0];
-if(b[0]<=0xEA)// && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
-{
-	return 316703093.0;
-}
-else// if(b[0]==0x94 && b[1]==0xD0 && b[2]==0x7E && b[3]==0x90)
-return 433979050.0;
-//if(b[0]!=0x00)
-//return 433979050.0;
-
-
-  //  return f;
-}
-void spi_init(void)
-{
-    SPI_CS   = 1;   // idle HIGH
-    SPI_CLK  = 0;   // idle LOW (SPI mode 0)
-    SPI_MOSI = 0;
-
-    spi_delay();
-}
-
-/*------------------------------------------------------------------------------
- * MAIN
- *------------------------------------------------------------------------------*/
-void main(void)
-{
-    float fFlashFreqHz;
-
-    /* Basic system init */
-    PDMD = 1;
-    PORT_CTRL &= ~(M_PORT_MATRIX | M_PORT_ROFF | M_PORT_STROBE);
-        PORT_CTRL |=  M_PORT_STROBE;
-        PORT_CTRL &= (~M_PORT_STROBE);
-    GPIO_LED = 0;
-
-    vSys_Setup(10);
-    vSys_SetMasterTime(0);
-    vSys_BandGapLdo(1);
-
-        if ((PROT0_CTRL & M_NVM_BLOWN) > 1) //if part is burned to user or run mode.
-        {
-                // Check the first power up bit meaning keyfob is powered on by battery insertion
-                if ( 0 != (SYSGEN & M_POWER_1ST_TIME) )
-                {
-                        vSys_FirstPowerUp(); // Function will shutdown.
-                }
-        }
-    vSys_LedIntensity(3);
-    lLEDOnTime = 20;
-    lPartID = lSys_GetProdId();
-    bIsr_DebounceCount = 0;
-
-    /* Button setup */
-    rBsrSetup.bButtonMask = bButtonMask_c;
-    rBsrSetup.pbPtsReserveHead = abBsrPtsPlaceHolder;
-    rBsrSetup.bPtsSize = 3;
-    rBsrSetup.bPushQualThresh = 3;
-    vBsr_Setup(&rBsrSetup);
-
-    RTC_CTRL = (0x07 << B_RTC_DIV) | M_RTC_CLR;
-    RTC_CTRL |= M_RTC_ENA;
-    ERTC = 1;
-    EA = 1;
-spi_init();
-    /* ---------- FLASH FREQUENCY READ ---------- */
-    fFlashFreqHz = spi_flash_read_freq();
-
-  //  if (fFlashFreqHz < 300000000UL || fFlashFreqHz > 350000000UL)
-  //      fFlashFreqHz = 315000000UL;   /* Safe fallback */
-//fFlashFreqHz;
-    fDesiredFreqOOK =(float)fFlashFreqHz; //(float)f_315_RkeFreqOOK_c;
-    fDesiredFreqFSK = (float)fFlashFreqHz;
-
-    bFskDev = b_315_RkeFskDev_c;
-
-    /* PA setup */
-    rPaSetup.bLevel      = b_315_PaLevel_c;
-    rPaSetup.wNominalCap = b_315_PaNominalCap_c;
-    rPaSetup.bMaxDrv     = b_315_PaMaxDrv_c;
-        rPaSetup.fAlpha      = 0.0;
-        rPaSetup.fBeta       = 0.0;
-    vPa_Setup(&rPaSetup);
-
-#ifdef OOK
-    rOdsSetup.bModulationType = bModOOK_c;
-    vStl_EncodeSetup(bEncodeManchester_c, NULL);
-    fDesiredFreq = fDesiredFreqOOK;
-    bPreamble = bPreambleManch_c;
-#else
-    rOdsSetup.bModulationType = bModFSK_c;
-vStl_EncodeSetup( bEnc_NoneNrz_c, NULL );
-    fDesiredFreq = fDesiredFreqFSK;
-    bPreamble = bPreambleNrz_c;
-#endif
-
-    rOdsSetup.bGroupWidth = 7;
-    rOdsSetup.bClkDiv = 5;
-    rOdsSetup.bEdgeRate = 0;
-    rOdsSetup.bLcWarmInt = 0;
-    rOdsSetup.bDivWarmInt = 5;
-    rOdsSetup.bPaWarmInt = 4;
-    rOdsSetup.wBitRate = 417;
-    vOds_Setup(&rOdsSetup);
-
-    vFCast_Setup();
-
-    iBatteryMv = iMVdd_Measure(bBatteryWait_c);
-if (iBatteryMv < iLowBatMv_c) 
-{
-        bBatStatus = 0;
-}
-else
-{
-        bBatStatus = 1;
-}
-    vDmdTs_RunForTemp(3);
-while ( 0 == bDmdTs_GetSamplesTaken() )
-{
-        //wait
-}
-
-    /* ---------- MAIN LOOP ---------- */
-    while (1)
-    {
-        vButtonCheck();
-        MY_LED = 1;
-
-        if (bButtonState)
-        {
-            MY_LED = 0;
-            bRepeatCount = bRepeatCount_c;
-            vRepeatTxLoop();
-        }
-        else if ((lSys_GetMasterTime() >> 5) > bMaxWaitForPush_c)
-        {
-	        if ((PROT0_CTRL & M_NVM_BLOWN) > 1) //if part is burned to user or run mode.
-  		{
-                        //Disable all interrupts
-                        EA = 0;
-#ifdef CRYSTAL
-                        // Disable XO
-			bXO_CTRL = 0 ; 		
-                        // Wait 20us for XO to stop
-                        vSys_16BitDecLoop( 20 );
-#endif
-                        // Shutdown
-                        vSys_Shutdown();      	
-		}
-    }
-  }
-}
-
-/*------------------------------------------------------------------------------
- * RTC INTERRUPT
- *------------------------------------------------------------------------------*/
-void vRepeatTxLoop (void)
-
-{ 
-
-        vFCast_Tune( fDesiredFreq );
-        if (rOdsSetup.bModulationType == bModFSK_c)
-        {
-                vFCast_FskAdj( bFskDev ); 
-        }
-        // Wait until there is a temperature sample available
-        while ( 0 == bDmdTs_GetSamplesTaken() )
-        {
-                //wait
-        }
-        //  Tune the PA with the temperature as an argument 
-        vPa_Tune( iDmdTs_GetLatestTemp());
-	vPacketAssemble();
-	//Convert whole frame before transmission 
-	vConvertPacket(rOdsSetup.bModulationType);
-        vStl_PreLoop();
-        do
-        {
-                // get current timestamp  
-                lTimestamp = lSys_GetMasterTime();
-                //if part is burned to user or run mode
-	        if ((PROT0_CTRL & M_NVM_BLOWN) > 1) 
-  	        {
-    	                //turn LED on
-	 	       // MY_LED = 0; 
-                }	       
-                while ( (lSys_GetMasterTime() - lTimestamp) < lLEDOnTime )
-                {
-                        //wait for LED ON time to expire
-                }
-	      //  MY_LED = 1;  //turn LED off
-	        //Transmit packet
-                vStl_SingleTxLoop(pbFrameHead,bFrameSize);
-	        // Wait repeat interval. 
-                while ( (lSys_GetMasterTime() - lTimestamp) < wRepeatInterval_c );
-
-        }while(--bRepeatCount);
-
-        vStl_PostLoop();
-
-         // Clear time value for next button push detecting. 
-        vSys_SetMasterTime(0);
-
-        return;
-} 
-
-void isr_rtc(void) interrupt INTERRUPT_RTC using 1
-{
-    RTC_CTRL &= ~M_RTC_INT;
-    vSys_IncMasterTime(5);
-    bIsr_DebounceCount++;
-  if ((bIsr_DebounceCount % bDebounceInterval_c) == 0)
-  {
-    vBsr_Service();
-  }
-  return;
-}
-
-/*------------------------------------------------------------------------------
- * BUTTON CHECK
- *------------------------------------------------------------------------------*/
-void vButtonCheck(void)
-{
-    ERTC = 0;
-    bButtonState = 0;
-
-    if (bBsr_GetPtsItemCnt())
-    {
-        bButtonState = wBsr_Pop() & 0xFF;
-
-        if (bPrevBtn)
-        {
-            bPrevBtn = bButtonState;
-            bButtonState = 0;
-        }
-        else
-        {
-            bPrevBtn = bButtonState;
-        }
-    }
-
-    ERTC = 1;
-  return;
-}
-void vPacketAssemble (void)
-{ 
-  BYTE i;
-
-  pbFrameHead = abFrame ;
-  bFrameSize = bFrameSize_c;
-
-
-  for (i=0;i<bPreambleSize_c;i++)
-  {
-	abFrame[i] = bPreamble;
-  }
-//clear button bits in bStatus
-        bStatus &= ~M_ButtonBits_c;
-//copy button bits from bButtonState to bStatus
-        bStatus |= bButtonState & M_ButtonBits_c;
-
-	abFrame[bFrameSize_c - 11] = bSync1_c;
-	abFrame[bFrameSize_c - 10] = bSync2_c;
-	abFrame[bFrameSize_c - 9] = ((BYTE *)&lPartID)[0];
-	abFrame[bFrameSize_c - 8] = ((BYTE *)&lPartID)[1];
-	abFrame[bFrameSize_c - 7] = ((BYTE *)&lPartID)[2];
-	abFrame[bFrameSize_c - 6] = ((BYTE *)&lPartID)[3];
-	abFrame[bFrameSize_c - 5] = bStatus;
-	abFrame[bFrameSize_c - 4] = ((BYTE *)&iBatteryMv)[0];
-	abFrame[bFrameSize_c - 3] = ((BYTE *)&iBatteryMv)[1];
-	abFrame[bFrameSize_c - 2] = 0;	//CRC
-	abFrame[bFrameSize_c - 1] = 0;	//CRC
-
-	vCalculateCrc();
-
-
-  return;
-}
-//--------------------------------------------------------------
-//Calculate CRC and write in the frame buffer
-//Bit pattern used (1)1000 0000 0000 0101, X16+X15+X2+1
-void vCalculateCrc(void)
-{
-        BYTE i,j;
-        WORD wCrc;
-        wCrc = 0xffff;
-        for(j = bPayloadStartIndex_c;j<bPayloadStartIndex_c + bPayloadSize_c;j++)
-        {
-                wCrc = wCrc ^ ((WORD)abFrame[j]<<8);
-
-                for (i = 8; i != 0; i--)
-                {
-                        if (wCrc & 0x8000)
-                        {
-	                        wCrc = (wCrc << 1) ^ 0x8005;
-                        }
-                        else
-	                {
-                                wCrc <<= 1;
-                        }
-                }
-        }
-  //-----------------------------------------------------------------
-  //Write CRC in frame
-  abFrame[bFrameSize_c - 2] = ((BYTE*)&wCrc)[0];
-  abFrame[bFrameSize_c - 1] = ((BYTE*)&wCrc)[1];
-  return;
-}
-
-  //-------------------------------------------------------------------
-  //MSB first to LSB first conversion, and inversion if FSK used
-void vConvertPacket (BYTE bModType)
-{
-  BYTE i,low,high;
-
-  if (bModType)
-  {
-    bModType = 0xff;
-  }
-  for (i=0;i<(sizeof abFrame);i++)
-  {
-	low = abConvTable[(abFrame[i] & 0xf0) >> 4] & 0x0f;
-	high = abConvTable[abFrame[i] & 0x0f] & 0xf0;
-	abFrame[i] = (high | low) ^ bModType;
-  }
-  return;
-}
-
-
+ *                          Silicon Laboratories, Inc.
+ *                           http://www.silabs.com
+ *                               Copyright 2010
+ *------------------------------------------------------------------------------
+ *
+ *    FILE:       rke_demo.h
+ *    TARGET:     Si4010 RevC
+ *    TOOLCHAIN:  Keil
+ *    DATE:       March 31, 2012,
+ *    RELEASE:    3.0 (Tamas Nagy), ROM version 02.00
+ *
+ *------------------------------------------------------------------------------
+ *
+ *    DESCRIPTION:
+ *      Header file for the rke_demo module.
+ *
+ *------------------------------------------------------------------------------
+ *
+ *    INCLUDES:
+ */
+#include "si4010_types.h"
+
+
+
+//#define CRYSTAL			//define this if external crystal is used on GPIO0
+//#define OOK                           //define this if OOK is used, otherwise FSK will be used
+
+//defines GPIO pins used for button input (see button vector mapping in AN370)
+#define bButtonMask_c   0x1F;	// GPIO0, GPIO1, GPIO2, GPIO3, GPIO4 
+
+#define bEncodeNoneNrz_c       	0   /* No encoding */
+#define bEncodeManchester_c    	1   /* Manchester encoding */
+#define bModOOK_c				0
+#define bModFSK_c				1
+
+#define bPreambleSize_c		   	13	
+#define bSyncSize_c                     2       
+#define bPayloadSize_c		   	7
+#define bCrcSize_c                      2	
+#define bFrameSize_c		        (bPreambleSize_c + bSyncSize_c + bPayloadSize_c + bCrcSize_c)
+#define bPayloadStartIndex_c            bPreambleSize_c + bSyncSize_c
+#define bPreambleNrz_c			0xaa
+#define bPreambleManch_c		0xff
+#define bSync1_c				0x2d
+#define bSync2_c				0xd4
+//RF settings used in rke_demo_2 fw of demo keyfobs in Silabs kits:
+  #define f_315_RkeFreqOOK_c		316660000.0	// for RKEdemo OOK
+  #define f_315_RkeFreqFSK_c		316703093.0	// for RKEdemo FSK, upper frequency
+  #define b_315_RkeFskDev_c			102	// deviation 43kHz
+  #define b_315_PaLevel_c			60	// PA level
+  #define b_315_PaMaxDrv_c			0	// PA level
+  #define b_315_PaNominalCap_c		        270	// PA level
+
+  #define f_433_RkeFreqOOK_c		433920000.0	// for RKEdemo OOK
+  #define f_433_RkeFreqFSK_c		433979050.0	// for RKEdemo FSK, upper frequency
+  #define b_433_RkeFskDev_c			102	// deviation 59kHz
+  #define b_433_PaLevel_c			77	// PA level
+  #define b_433_PaMaxDrv_c			1	// PA level
+  #define b_433_PaNominalCap_c		        192	// PA level
+
+  #define f_868_RkeFreqOOK_c		868300000.0	// for RKEdemo OOK
+  #define f_868_RkeFreqFSK_c		868418922.0	// for RKEdemo FSK
+  #define b_868_RkeFskDev_c			103     // deviation 119kHz
+  #define b_868_PaLevel_c			77	// PA level
+  #define b_868_PaMaxDrv_c			1	// PA level
+  #define b_868_PaNominalCap_c		        81	// PA level
+
+  #define f_915_RkeFreqOOK_c		917000000.0	// for RKEdemo OOK
+  #define f_915_RkeFreqFSK_c		917120194.0	// for RKEdemo FSK
+  #define b_915_RkeFskDev_c			93      // deviation 120kHz
+  #define b_915_PaLevel_c			77	// PA level
+  #define b_915_PaMaxDrv_c			1	// PA level
+  #define b_915_PaNominalCap_c		        69	// PA level
+
+#define iLowBatMv_c		2500
+
+#define bButton1_c              0x01
+#define bButton2_c              0x02
+#define bButton3_c              0x04
+#define bButton4_c              0x08
+#define bButton5_c              0x10
+//defines position of button bits in status byte of the transmitted packets
+#define M_ButtonBits_c			0x1F    
+
+#define wSys_16Bit_40ms_c		41737
+// Amount of time, the application will wait after boot without
+// getting a qualified button push before giving up and shutting the chip down
+#define	bMaxWaitForPush_c		50
+#define wRepeatInterval_c		100     //ms
+#define bRepeatCount_c			3
+#define bBatteryWait_c 			100
+ // This specifies the number of times that the RTC ISR is called between 
+ // each call to the button service routine.  The actual time between
+ // calls is dependent on the setting of RTC_CTRL.RTC_DIV which dictates how
+ // often the RTC ISR is called (5ms in this demo).It means that the interval
+ // between calls to the vBsr_Service() function is 5*2=10ms.
+#define	bDebounceInterval_c		2
+// Size of FIFO of captured buttons .. max number of unserviced button changes
+#define bPtsSize_c                      3  
+//---------------------------------------------------------------------------
+//    PROTOTYPES OF STATIC FUNCTIONS:
+//-------------------------------------------------------------------------
+void vPacketAssemble    /* Assemble packet for Rke demo receiver*/
+      (
+        void
+      );
+void vButtonCheck       /* Buttoons checking */
+      (
+        void
+      );
+void vRepeatTxLoop
+      (
+       void
+      );
+void vCalculateCrc
+	  (
+	  void
+	  );
+void vConvertPacket     /* change bit order and invert if necessary*/
+      (
+       BYTE bModType
+      );
+  //---------------------------------------------------------------------------
+  //    VARIABLES:
+
+  BYTE bIsr_DebounceCount;
+  LWORD xdata lLEDOnTime;
+  BYTE xdata bRepeatCount;
+  LWORD lTimestamp;
+  BYTE bdata bPrevBtn = 0;
+  BYTE xdata *pbFrameHead;//Pointer to the head of the frame to be sent out.
+  BYTE xdata bFrameSize;
+  xdata BYTE abFrame[bFrameSize_c];
+  xdata LWORD lPartID;
+  BYTE bBatStatus;
+  code BYTE abConvTable[16] = {0x00,0x88,0x44,0xcc,0x22,0xaa,0x66,0xee,0x11,0x99,
+  	0x55,0xdd,0x33,0xbb,0x77,0xff};
+  int iBatteryMv;
+ 
+  BYTE bStatus;
+  BYTE xdata bButtonState;
+
+  float xdata fDesiredFreqOOK;
+  float xdata fDesiredFreqFSK;
+  float xdata fDesiredFreq;
+  BYTE  xdata bFskDev;
+  BYTE	bPreamble;
+  /* Structure for setting up the ODS .. must be in XDATA */
+  tOds_Setup xdata rOdsSetup;
+
+  /* Structure for setting up the XO .. must be in XDATA */
+  tFCast_XoSetup xdata rXoSetup;
+
+  /* Structure for setting up the PA .. must be in XDATA */
+  tPa_Setup xdata  rPaSetup;
+
+  /* BSR control structure */
+  tBsr_Setup xdata rBsrSetup;
+  BYTE xdata abBsrPtsPlaceHolder [bPtsSize_c * 2] = {0};
+  WORD wPacketCount;
+
+#endif /* _RKE_DEMO_H */
