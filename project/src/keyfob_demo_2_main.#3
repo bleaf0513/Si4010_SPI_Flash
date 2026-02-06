@@ -74,7 +74,7 @@ void spi_write_byte(BYTE _data)
 BYTE spi_read_byte(void)
 {
     BYTE i;
-    BYTE data = 0;
+    BYTE _data = 0;
 
     for (i = 0; i < 8; i++)
     {
@@ -82,15 +82,15 @@ BYTE spi_read_byte(void)
         spi_delay();
 
         SPI_CLK = 1;
-        data <<= 1;
+        _data <<= 1;
         if (SPI_MISO)
-            data |= 1;
+            _data |= 1;
 
         spi_delay();
     }
 
     SPI_CLK = 0;
-    return data;
+    return _data;
 }
 
 /*------------------------------------------------------------------------------
@@ -133,13 +133,17 @@ float spi_flash_read_freq(void)
   //  f |= ((LWORD)b[2] << 16);
   //  f |= ((LWORD)b[1] << 8);
   //  f |=  (LWORD)b[0];
-if(b[0]==0x74 && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
+  if(b[0]==0x00 || b[0]==0xFF) return 0.0;
+/*if(b[0]<=0xEB)// && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
 {
 	return 316703093.0;
 }
-else if(b[0]==0x74 && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
-return 433979050.0;
-
+else //if(b[0]==0x74 && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
+return 0;//433979050.0;
+*/
+if(b[0]==0x29 && b[1]==0xA0 ) return 433979050.0;
+if(b[0]==0xE9 && b[1]==0xF5) return 316703093.0;
+return 0;
   //  return f;
 }
 void spi_flash_read_id(BYTE *id)

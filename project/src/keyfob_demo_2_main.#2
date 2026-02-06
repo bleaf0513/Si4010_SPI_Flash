@@ -4,7 +4,9 @@
  * Toolchain: Keil C51
  * Bit-banged SPI Flash Read (CMD 0x03)
  *------------------------------------------------------------------------------*/
-
+/////////////GSM//////////
+//SPI_byte = (WinHex_byte << 1) | 0x01
+//////////////////////////////////////
 #include <intrins.h>
 #include "stdlib.h"
 #include "si4010.h"
@@ -133,13 +135,17 @@ float spi_flash_read_freq(void)
   //  f |= ((LWORD)b[2] << 16);
   //  f |= ((LWORD)b[1] << 8);
   //  f |=  (LWORD)b[0];
-if(b[0]==0x74 && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
+  if(b[0]==0x00 || b[0]==0xFF) return 0.0;
+/*if(b[0]<=0xEB)// && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
 {
 	return 316703093.0;
 }
-else if(b[0]==0x74 && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
-return 433979050.0;
-
+else //if(b[0]==0x74 && b[1]==0xFA && b[2]==0xC4 && b[3]==0x7A)
+return 0;//433979050.0;
+*/
+if(b[0]==0x29 && b[1]==0xA0 ) return 433979050.0;
+if(b[0]==0xE9 && b[1]==0xF5) return 316703093.0;
+return 0;
   //  return f;
 }
 void spi_flash_read_id(BYTE *id)
